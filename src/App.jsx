@@ -8,12 +8,15 @@ import {
 } from "react-router-dom";
 
 import LoginForm from "./components/LoginForm";
+import Register from "./components/Register";
 import Dashboard from "./components/Dashboard";
 import Lessons from "./components/pages/Lessons";
-import LessonDetail from "./components/pages/LessonDetail.jsx";
-import LessonCreate from "./components/pages/LessonCreate"; // 👈 ДОБАВИЛИ
+import LessonDetail from "./components/pages/LessonDetail";
+import LessonCreate from "./components/pages/LessonCreate";
 import Logout from "./components/Logout";
 import Layout from "./components/Layout";
+
+/* ================= WRAPPER ================= */
 
 function AppWrapper() {
     return (
@@ -23,17 +26,24 @@ function AppWrapper() {
     );
 }
 
+/* ================= APP ================= */
+
 function App() {
     const [token, setToken] = useState(() => localStorage.getItem("token"));
     const navigate = useNavigate();
 
     const handleLogout = () => {
-        navigate("/logout", { replace: true });
+        localStorage.removeItem("token");
+        setToken(null);
+        navigate("/login", { replace: true });
     };
 
     return (
         <Routes>
-            {/* 🔐 Login */}
+            {/* 👉 если просто / — сразу на login */}
+            <Route path="/" element={<Navigate to="/login" replace />} />
+
+            {/* ===== AUTH ===== */}
             <Route
                 path="/login"
                 element={
@@ -45,40 +55,42 @@ function App() {
                 }
             />
 
-            {/* 🔒 Защищённые страницы */}
-            <Route path="/" element={<Layout onLogout={handleLogout} />}>
-                <Route
-                    path="dashboard"
-                    element={token ? <Dashboard /> : <Navigate to="/login" replace />}
-                />
+            <Route
+                path="/register"
+                element={
+                    !token ? (
+                        <Register />
+                    ) : (
+                        <Navigate to="/dashboard" replace />
+                    )
+                }
+            />
 
-                {/* 📋 Список уроков */}
-                <Route
-                    path="lessons"
-                    element={token ? <Lessons /> : <Navigate to="/login" replace />}
-                />
-
-                {/* ➕ СОЗДАНИЕ УРОКА (ВАЖНО: ВЫШЕ :id) */}
-                <Route
-                    path="lessons/create"
-                    element={token ? <LessonCreate /> : <Navigate to="/login" replace />}
-                />
-
-                {/* ✏️ РЕДАКТИРОВАНИЕ УРОКА */}
-                <Route
-                    path="lessons/:id"
-                    element={token ? <LessonDetail /> : <Navigate to="/login" replace />}
-                />
-
-                {/* fallback */}
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
-            </Route>
-
-            {/* 🚪 Logout */}
             <Route
                 path="/logout"
-                element={<Logout onLogout={setToken} />}
+                element={<Logout onLogout={handleLogout} />}
             />
+
+            {/* ===== PROTECTED ===== */}
+            <Route
+                path="/"
+                element={
+                    token ? (
+                        <Layout onLogout={handleLogout} />
+                    ) : (
+                        <Navigate to="/login" replace />
+                    )
+                }
+            >
+                <Route path="dashboard" element={<Dashboard />} />
+
+                <Route path="lessons" element={<Lessons />} />
+                <Route path="lessons/create" element={<LessonCreate />} />
+                <Route path="lessons/:id" element={<LessonDetail />} />
+            </Route>
+
+            {/* ===== FALLBACK ===== */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
     );
 }

@@ -10,6 +10,7 @@ import {
     Alert,
     InputAdornment,
     IconButton,
+    Stack,
 } from "@mui/material";
 
 import Visibility from "@mui/icons-material/Visibility";
@@ -37,13 +38,9 @@ export default function LoginForm({ onLogin }) {
             const token = res.data.token;
             localStorage.setItem("token", token);
 
-            if (onLogin) {
-                onLogin(token);
-            }
-
+            onLogin(token);
             navigate("/dashboard", { replace: true });
-        } catch (err) {
-            console.error(err);
+        } catch {
             setError("Неверный логин или пароль");
         } finally {
             setLoading(false);
@@ -58,7 +55,7 @@ export default function LoginForm({ onLogin }) {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: "#e0e0e0",
+                bgcolor: "#e0e0e0",
                 p: 2,
             }}
         >
@@ -118,15 +115,24 @@ export default function LoginForm({ onLogin }) {
                         }}
                     />
 
-                    <Button
-                        type="submit"
-                        variant="contained"
-                        fullWidth
-                        sx={{ mt: 2 }}
-                        disabled={loading}
-                    >
-                        {loading ? "Вход..." : "Войти"}
-                    </Button>
+                    <Stack spacing={1} sx={{ mt: 2 }}>
+                        <Button
+                            type="submit"
+                            variant="contained"
+                            fullWidth
+                            disabled={loading}
+                        >
+                            {loading ? "Вход..." : "Войти"}
+                        </Button>
+
+                        <Button
+                            variant="text"
+                            fullWidth
+                            onClick={() => navigate("/register")}
+                        >
+                            Зарегистрироваться
+                        </Button>
+                    </Stack>
                 </Box>
             </Paper>
         </Box>
