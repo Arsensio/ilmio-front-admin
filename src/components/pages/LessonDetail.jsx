@@ -1,8 +1,9 @@
-import { useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import {
     Box,
     Typography,
+    CircularProgress,
     Alert,
     Paper,
     Divider,
@@ -26,31 +27,23 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 
 import {
-    createLesson,
-    getFilterData, // 👈 ВАЖНО
+    getLessonById,
+    updateLesson,
+    getDictionary,
 } from "@/api/lessons";
 
-export default function LessonCreate() {
+export default function LessonDetail() {
+    const { id } = useParams();
     const navigate = useNavigate();
 
-    /* ================= FORM STATE ================= */
-    const [form, setForm] = useState({
-        ageGroup: "",
-        level: "",
-        status: "",
-        category: "",
-        lang: "",          // 👈 ОБЯЗАТЕЛЬНО
-        title: "",
-        description: "",
-        blocks: [],
-    });
-
+    const [form, setForm] = useState(null);
+    const [isEditing, setIsEditing] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
     const [levels, setLevels] = useState([]);
     const [statuses, setStatuses] = useState([]);
     const [categories, setCategories] = useState([]);
-    const [langs, setLangs] = useState([]);        // 👈 ЯЗЫКИ
     const [blockTypes, setBlockTypes] = useState([]);
 
     const [addBlockDialog, setAddBlockDialog] = useState(false);
@@ -59,22 +52,37 @@ export default function LessonCreate() {
     const [newBlockType, setNewBlockType] = useState("");
     const [newItemType, setNewItemType] = useState("");
 
-    /* ================= LOAD FILTERS ================= */
+    /* ================= LOAD DATA ================= */
     useEffect(() => {
         const load = async () => {
             try {
-                const data = await getFilterData();
+                const [
+                    lessonRes,
+                    lvl,
+                    st,
+                    cat,
+                    blocks,
+                ] = await Promise.all([
+                    getLessonById(id),
+                    getDictionary("LEVEL"),
+                    getDictionary("STATUS"),
+                    getDictionary("CATEGORY"),
+                    getDictionary("BLOCK_TYPE"),
+                ]);
 
-                setLevels(data.levels);
-                setStatuses(data.statuses);
-                setCategories(data.categories);
-                setLangs(data.langs);   // 👈 ТУТ
+                setForm(lessonRes.data);
+                setLevels(lvl.data);
+                setStatuses(st.data);
+                setCategories(cat.data);
+                setBlockTypes(blocks.data);
             } catch {
-                setError("Ошибка загрузки справочников");
+                setError("Ошибка загрузки урока");
+            } finally {
+                setLoading(false);
             }
         };
         load();
-    }, []);
+    }, [id]);
 
     /* ================= BLOCK HELPERS ================= */
 
@@ -120,8 +128,16 @@ export default function LessonCreate() {
                         items: [
                             ...b.items,
                             newItemType === "TEXT"
-                                ? { id: Date.now(), itemType: "TEXT", content: "" }
-                                : { id: Date.now(), itemType: newItemType, mediaUrl: "" },
+                                ? {
+                                    id: Date.now(),
+                                    itemType: "TEXT",
+                                    content: "",
+                                }
+                                : {
+                                    id: Date.now(),
+                                    itemType: newItemType,
+                                    mediaUrl: "",
+                                },
                         ],
                     }
             ),
@@ -160,140 +176,133 @@ export default function LessonCreate() {
 
     /* ================= SAVE ================= */
 
-    const handleCreate = async () => {
+    const handleSave = async () => {
         try {
-            if (
-                !form.ageGroup ||
-                !form.level ||
-                !form.status ||
-                !form.category ||
-                !form.lang ||
-                !form.title ||
-                !form.description
-            ) {
-                setError("Заполните все обязательные поля");
-                return;
-            }
-
-            await createLesson(form);
-            navigate("/lessons");
+            await updateLesson(id, form);
+            setIsEditing(false);
         } catch {
-            setError("Ошибка при создании урока");
+            setError("Ошибка сохранения");
         }
     };
+
+    if (loading) return <CircularProgress />;
+    if (error) return <Alert severity="error">{error}</Alert>;
+    if (!form) return null;
 
     /* ================= UI ================= */
 
     return (
         <Box sx={{ p: 3 }}>
+            {/* HEADER */}
             <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
                 <Button onClick={() => navigate(-1)}>Назад</Button>
-                <Button variant="contained" onClick={handleCreate}>
-                    Создать урок
+                <Button
+                    variant="contained"
+                    onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+                >
+                    {isEditing ? "Сохранить" : "Редактировать"}
                 </Button>
             </Box>
 
-            <Typography variant="h4">Создание урока</Typography>
+            <Typography variant="h4">Урок #{form.id}</Typography>
 
-            {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
-
-            {/* META */}
+            {/* TITLE / DESCRIPTION */}
             <Stack spacing={2} sx={{ maxWidth: 600, mt: 3 }}>
                 <TextField
-                    label="Название *"
-                    value={form.title}
+                    label="Название"
+                    value={form.title || ""}
+                    disabled={!isEditing}
                     onChange={(e) => setForm({ ...form, title: e.target.value })}
                 />
 
                 <TextField
-                    label="Описание *"
+                    label="Описание"
                     multiline
                     minRows={3}
-                    value={form.description}
+                    value={form.description || ""}
+                    disabled={!isEditing}
                     onChange={(e) =>
                         setForm({ ...form, description: e.target.value })
                     }
                 />
+            </Stack>
+
+            {/* META */}
+            <Stack spacing={2} sx={{ maxWidth: 400, mt: 4 }}>
+                {[
+                    ["level", "Уровень", levels],
+                    ["status", "Статус", statuses],
+                    ["category", "Категория", categories],
+                ].map(([key, label, options]) => (
+                    <FormControl key={key} fullWidth>
+                        <Typography fontWeight="bold">{label}</Typography>
+                        {isEditing ? (
+                            <Select
+                                value={form[key]}
+                                onChange={(e) =>
+                                    setForm({ ...form, [key]: e.target.value })
+                                }
+                            >
+                                {options.map(o => (
+                                    <MenuItem key={o} value={o}>{o}</MenuItem>
+                                ))}
+                            </Select>
+                        ) : (
+                            <Typography>{form[key]}</Typography>
+                        )}
+                    </FormControl>
+                ))}
 
                 <TextField
-                    label="Возраст *"
+                    label="Возраст"
                     value={form.ageGroup}
+                    disabled={!isEditing}
                     onChange={(e) =>
                         setForm({ ...form, ageGroup: e.target.value })
                     }
                 />
-
-                {/* 🌍 LANGUAGE */}
-                <FormControl fullWidth>
-                    <Typography fontWeight="bold">Язык *</Typography>
-                    <Select
-                        value={form.lang}
-                        onChange={(e) =>
-                            setForm({ ...form, lang: e.target.value })
-                        }
-                    >
-                        {langs.map(l => (
-                            <MenuItem key={l} value={l}>{l}</MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
-
-                {[
-                    ["level", "Уровень *", levels],
-                    ["status", "Статус *", statuses],
-                    ["category", "Категория *", categories],
-                ].map(([key, label, options]) => (
-                    <FormControl key={key} fullWidth>
-                        <Typography fontWeight="bold">{label}</Typography>
-                        <Select
-                            value={form[key]}
-                            onChange={(e) =>
-                                setForm({ ...form, [key]: e.target.value })
-                            }
-                        >
-                            {options.map(o => (
-                                <MenuItem key={o} value={o}>{o}</MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                ))}
             </Stack>
 
             <Divider sx={{ my: 4 }} />
 
             {/* BLOCKS */}
-            <Typography variant="h5">Blocks (опционально)</Typography>
+            <Typography variant="h5">Blocks</Typography>
 
             {form.blocks.map((block, idx) => (
                 <Paper key={block.id} sx={{ p: 2, mt: 2 }}>
                     <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                         <Typography>{block.type}</Typography>
-                        <Box>
-                            <IconButton onClick={() => moveBlock(idx, idx - 1)}>
-                                <ArrowUpwardIcon />
-                            </IconButton>
-                            <IconButton onClick={() => moveBlock(idx, idx + 1)}>
-                                <ArrowDownwardIcon />
-                            </IconButton>
-                            <IconButton color="error" onClick={() => deleteBlock(block.id)}>
-                                <DeleteIcon />
-                            </IconButton>
-                        </Box>
+
+                        {isEditing && (
+                            <Box>
+                                <IconButton onClick={() => moveBlock(idx, idx - 1)}>
+                                    <ArrowUpwardIcon />
+                                </IconButton>
+                                <IconButton onClick={() => moveBlock(idx, idx + 1)}>
+                                    <ArrowDownwardIcon />
+                                </IconButton>
+                                <IconButton color="error" onClick={() => deleteBlock(block.id)}>
+                                    <DeleteIcon />
+                                </IconButton>
+                            </Box>
+                        )}
                     </Box>
 
-                    {block.items.map(item =>
+                    {/* ITEMS */}
+                    {block.items.map(item => (
                         item.itemType === "TEXT" ? (
                             <TextField
                                 key={item.id}
                                 fullWidth
                                 multiline
                                 sx={{ mt: 1 }}
+                                disabled={!isEditing}
                                 value={item.content || ""}
                                 onChange={(e) =>
                                     updateItem(block.id, item.id, "content", e.target.value)
                                 }
                                 InputProps={{
-                                    endAdornment: (
+                                    endAdornment: isEditing && (
                                         <InputAdornment position="end">
                                             <IconButton
                                                 color="error"
@@ -308,55 +317,72 @@ export default function LessonCreate() {
                                 }}
                             />
                         ) : (
-                            <TextField
-                                key={item.id}
-                                fullWidth
-                                sx={{ mt: 1 }}
-                                value={item.mediaUrl || ""}
-                                onChange={(e) =>
-                                    updateItem(block.id, item.id, "mediaUrl", e.target.value)
-                                }
-                                InputProps={{
-                                    endAdornment: (
-                                        <InputAdornment position="end">
-                                            <IconButton
-                                                color="error"
-                                                onClick={() =>
-                                                    deleteItem(block.id, item.id)
-                                                }
-                                            >
-                                                <DeleteIcon />
-                                            </IconButton>
-                                        </InputAdornment>
-                                    ),
-                                }}
-                            />
+                            isEditing ? (
+                                <TextField
+                                    key={item.id}
+                                    fullWidth
+                                    sx={{ mt: 1 }}
+                                    value={item.mediaUrl || ""}
+                                    onChange={(e) =>
+                                        updateItem(block.id, item.id, "mediaUrl", e.target.value)
+                                    }
+                                    InputProps={{
+                                        endAdornment: (
+                                            <InputAdornment position="end">
+                                                <IconButton
+                                                    color="error"
+                                                    onClick={() =>
+                                                        deleteItem(block.id, item.id)
+                                                    }
+                                                >
+                                                    <DeleteIcon />
+                                                </IconButton>
+                                            </InputAdornment>
+                                        ),
+                                    }}
+                                />
+                            ) : (
+                                <Box key={item.id} sx={{ mt: 1 }}>
+                                    <a
+                                        href={item.mediaUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        {item.mediaUrl}
+                                    </a>
+                                </Box>
+                            )
                         )
-                    )}
+                    ))}
 
-                    <Button
-                        size="small"
-                        startIcon={<AddIcon />}
-                        sx={{ mt: 1 }}
-                        onClick={() => {
-                            setSelectedBlockId(block.id);
-                            setAddItemDialog(true);
-                        }}
-                    >
-                        Добавить item
-                    </Button>
+                    {isEditing && (
+                        <Button
+                            size="small"
+                            startIcon={<AddIcon />}
+                            sx={{ mt: 1 }}
+                            onClick={() => {
+                                setSelectedBlockId(block.id);
+                                setAddItemDialog(true);
+                            }}
+                        >
+                            Добавить item
+                        </Button>
+                    )}
                 </Paper>
             ))}
 
-            <Button
-                startIcon={<AddIcon />}
-                sx={{ mt: 3 }}
-                onClick={() => setAddBlockDialog(true)}
-            >
-                Добавить блок
-            </Button>
-
             {/* ADD BLOCK */}
+            {isEditing && (
+                <Button
+                    startIcon={<AddIcon />}
+                    sx={{ mt: 3 }}
+                    onClick={() => setAddBlockDialog(true)}
+                >
+                    Добавить блок
+                </Button>
+            )}
+
+            {/* ADD BLOCK DIALOG */}
             <Dialog open={addBlockDialog} onClose={() => setAddBlockDialog(false)}>
                 <DialogTitle>Тип блока</DialogTitle>
                 <DialogContent>
@@ -377,7 +403,7 @@ export default function LessonCreate() {
                 </DialogActions>
             </Dialog>
 
-            {/* ADD ITEM */}
+            {/* ADD ITEM DIALOG */}
             <Dialog open={addItemDialog} onClose={() => setAddItemDialog(false)}>
                 <DialogTitle>Тип элемента</DialogTitle>
                 <DialogContent>

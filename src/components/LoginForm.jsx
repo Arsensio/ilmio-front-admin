@@ -1,5 +1,4 @@
 import { useState } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -16,6 +15,8 @@ import {
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 
+import { login } from "../api/auth";
+
 export default function LoginForm({ onLogin }) {
     const navigate = useNavigate();
 
@@ -23,32 +24,29 @@ export default function LoginForm({ onLogin }) {
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState("");
-
-    const toggleShowPassword = () => {
-        setShowPassword((prev) => !prev);
-    };
+    const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError("");
+        setLoading(true);
 
         try {
-            const res = await axios.post(
-                "http://localhost:8081/auth/login",
-                { username, password },
-                { headers: { "Content-Type": "application/json" } }
-            );
+            const res = await login({ username, password });
 
             const token = res.data.token;
-
             localStorage.setItem("token", token);
-            if (onLogin) onLogin(token);
+
+            if (onLogin) {
+                onLogin(token);
+            }
 
             navigate("/dashboard", { replace: true });
-
         } catch (err) {
             console.error(err);
             setError("Неверный логин или пароль");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -56,13 +54,10 @@ export default function LoginForm({ onLogin }) {
         <Box
             sx={{
                 position: "fixed",
-                top: 0,
-                left: 0,
-                width: "100vw",
-                height: "100vh",
+                inset: 0,
                 display: "flex",
-                justifyContent: "center",
                 alignItems: "center",
+                justifyContent: "center",
                 backgroundColor: "#e0e0e0",
                 p: 2,
             }}
@@ -70,7 +65,7 @@ export default function LoginForm({ onLogin }) {
             <Paper
                 elevation={6}
                 sx={{
-                    width: { xs: "90%", sm: 400 },
+                    width: { xs: "100%", sm: 400 },
                     p: 4,
                     borderRadius: 2,
                 }}
@@ -106,8 +101,17 @@ export default function LoginForm({ onLogin }) {
                         InputProps={{
                             endAdornment: (
                                 <InputAdornment position="end">
-                                    <IconButton onClick={toggleShowPassword} edge="end">
-                                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                                    <IconButton
+                                        onClick={() =>
+                                            setShowPassword((prev) => !prev)
+                                        }
+                                        edge="end"
+                                    >
+                                        {showPassword ? (
+                                            <VisibilityOff />
+                                        ) : (
+                                            <Visibility />
+                                        )}
                                     </IconButton>
                                 </InputAdornment>
                             ),
@@ -119,8 +123,9 @@ export default function LoginForm({ onLogin }) {
                         variant="contained"
                         fullWidth
                         sx={{ mt: 2 }}
+                        disabled={loading}
                     >
-                        Войти
+                        {loading ? "Вход..." : "Войти"}
                     </Button>
                 </Box>
             </Paper>
