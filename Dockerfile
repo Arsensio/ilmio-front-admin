@@ -1,43 +1,26 @@
-# -------------------------------
-# 1) Этап сборки (builder)
-# -------------------------------
+# ---------- BUILD ----------
 FROM node:18-alpine AS builder
 
-# Рабочая директория
 WORKDIR /app
 
-# Объявляем build-параметр для API-URL
-ARG REACT_APP_API_URL
-
-# Пробрасываем его в окружение для сборки
-# (React увидит эту переменную во время npm run build)
-ENV REACT_APP_API_URL=$REACT_APP_API_URL
-
-# Копируем конфиги
-COPY package.json package-lock.json ./
-
-# Устанавливаем зависимости
+COPY package*.json ./
 RUN npm install
 
-# Копируем весь исходный код
 COPY . .
-
-# Собираем проект (React положит файлы в папку dist/)
 RUN npm run build
 
-# -------------------------------
-# 2) Этап сервера (nginx)
-# -------------------------------
+# ---------- NGINX ----------
 FROM nginx:alpine
 
-# Удаляем дефолтные html/nginx файлы
-RUN rm -rf /usr/share/nginx/html/*
+# удаляем дефолтный конфиг
+RUN rm /etc/nginx/conf.d/default.conf
 
-# Копируем собранный frontend из builder
+# копируем наш nginx.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# копируем билд
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Открываем порт 80
 EXPOSE 80
 
-# Запускаем nginx в переднем плане
 CMD ["nginx", "-g", "daemon off;"]
