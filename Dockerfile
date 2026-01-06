@@ -1,17 +1,18 @@
 FROM node:18-alpine AS builder
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+# копируем только нужное
+COPY frontend/package.json frontend/package-lock.json ./
 RUN npm install
 
-COPY . .
+COPY frontend/. .
 RUN npm run build
 
-# 2) сервим сборку через NGINX
 FROM nginx:alpine
-COPY --from=builder /app/build /usr/share/nginx/html
+WORKDIR /usr/share/nginx/html
+RUN rm -rf ./*
 
-# пробрасываем порт
+COPY --from=builder /app/build .
+
 EXPOSE 80
-
 CMD ["nginx", "-g", "daemon off;"]
