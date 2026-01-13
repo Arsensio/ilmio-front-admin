@@ -31,7 +31,7 @@ export default function LessonCreate() {
     const navigate = useNavigate();
 
     const [form, setForm] = useState({
-        ageGroup: "",   // ✅ теперь code типа AGE_5_6
+        ageGroup: "", // ✅ code
         level: "",
         status: "",
         category: "",
@@ -56,11 +56,25 @@ export default function LessonCreate() {
     const [newBlockType, setNewBlockType] = useState("");
     const [newItemType, setNewItemType] = useState("");
 
+    /* ================= PLACEHOLDER HELPERS ================= */
+
+    const getItemPlaceholder = (itemType) => {
+        if (itemType === "TEXT") return "Введите текст…";
+        if (itemType === "IMAGE") return "Вставьте ссылку на картинку…";
+        if (itemType === "VIDEO") return "Вставьте ссылку на видео…";
+        return "";
+    };
+
+    const getItemExample = (itemType) => {
+        if (itemType === "IMAGE") return "Пример: https://example.com/image.png";
+        if (itemType === "VIDEO") return "Пример: https://youtube.com/watch?v=xxxx";
+        return "";
+    };
+
     useEffect(() => {
         const load = async () => {
             try {
                 const data = await getFilterData();
-
                 setAgeGroups(data.ageGroups ?? []);
                 setLevels(data.levels ?? []);
                 setStatuses(data.statuses ?? []);
@@ -78,33 +92,42 @@ export default function LessonCreate() {
 
     /* ============ ORDER HELPERS ============ */
 
-    const recalcBlockOrder = (blocks) =>
-        blocks.map((b, i) => ({ ...b, orderIndex: i + 1 }));
-
     const recalcItemOrder = (items) =>
         items.map((it, i) => ({ ...it, orderIndex: i + 1 }));
+
+    const recalcBlockOrder = (blocks) =>
+        blocks.map((b, i) => ({
+            ...b,
+            orderIndex: i + 1,
+            items: Array.isArray(b.items) ? recalcItemOrder(b.items) : [],
+        }));
 
     /* ============ BLOCKS ============ */
 
     const moveBlock = (from, to) => {
         if (to < 0 || to >= form.blocks.length) return;
+
         const blocks = [...form.blocks];
         const [moved] = blocks.splice(from, 1);
         blocks.splice(to, 0, moved);
+
         setForm({ ...form, blocks: recalcBlockOrder(blocks) });
     };
 
     const deleteBlock = (blockId) => {
-        const blocks = form.blocks.filter(b => b.id !== blockId);
+        const blocks = form.blocks.filter((b) => b.id !== blockId);
         setForm({ ...form, blocks: recalcBlockOrder(blocks) });
     };
 
     const addBlock = () => {
+        if (!newBlockType) return;
+
         const blocks = recalcBlockOrder([
             ...form.blocks,
             {
                 id: Date.now(),
                 type: newBlockType,
+                orderIndex: form.blocks.length + 1,
                 items: [],
             },
         ]);
@@ -115,22 +138,23 @@ export default function LessonCreate() {
     };
 
     const addItem = () => {
-        setForm({
-            ...form,
-            blocks: form.blocks.map(b =>
-                b.id !== selectedBlockId
-                    ? b
-                    : {
-                        ...b,
-                        items: recalcItemOrder([
-                            ...b.items,
-                            newItemType === "TEXT"
-                                ? { id: Date.now(), itemType: "TEXT", content: "" }
-                                : { id: Date.now(), itemType: newItemType, mediaUrl: "" },
-                        ]),
-                    }
-            ),
+        if (!selectedBlockId || !newItemType) return;
+
+        const blocks = form.blocks.map((b) => {
+            if (b.id !== selectedBlockId) return b;
+
+            const newItem =
+                newItemType === "TEXT"
+                    ? { id: Date.now(), itemType: "TEXT", content: "" }
+                    : { id: Date.now(), itemType: newItemType, mediaUrl: "" };
+
+            return {
+                ...b,
+                items: recalcItemOrder([...(b.items ?? []), newItem]),
+            };
         });
+
+        setForm({ ...form, blocks: recalcBlockOrder(blocks) });
 
         setNewItemType("");
         setSelectedBlockId(null);
@@ -138,33 +162,31 @@ export default function LessonCreate() {
     };
 
     const updateItem = (blockId, itemId, field, value) => {
-        setForm({
-            ...form,
-            blocks: form.blocks.map(b =>
-                b.id !== blockId
-                    ? b
-                    : {
-                        ...b,
-                        items: b.items.map(it =>
-                            it.id !== itemId ? it : { ...it, [field]: value }
-                        ),
-                    }
-            ),
-        });
+        const blocks = form.blocks.map((b) =>
+            b.id !== blockId
+                ? b
+                : {
+                    ...b,
+                    items: (b.items ?? []).map((it) =>
+                        it.id !== itemId ? it : { ...it, [field]: value }
+                    ),
+                }
+        );
+
+        setForm({ ...form, blocks });
     };
 
     const deleteItem = (blockId, itemId) => {
-        setForm({
-            ...form,
-            blocks: form.blocks.map(b =>
-                b.id !== blockId
-                    ? b
-                    : {
-                        ...b,
-                        items: recalcItemOrder(b.items.filter(it => it.id !== itemId)),
-                    }
-            ),
-        });
+        const blocks = form.blocks.map((b) =>
+            b.id !== blockId
+                ? b
+                : {
+                    ...b,
+                    items: recalcItemOrder((b.items ?? []).filter((it) => it.id !== itemId)),
+                }
+        );
+
+        setForm({ ...form, blocks: recalcBlockOrder(blocks) });
     };
 
     /* ============ BUILD PAYLOAD ============ */
@@ -177,12 +199,12 @@ export default function LessonCreate() {
         lang: form.lang,
         title: form.title,
         description: form.description,
-        blocks: form.blocks.map((block) => ({
+        blocks: (form.blocks ?? []).map((block, bIndex) => ({
             type: block.type,
-            orderIndex: block.orderIndex,
-            items: block.items.map((item) => ({
+            orderIndex: bIndex + 1,
+            items: (block.items ?? []).map((item, iIndex) => ({
                 itemType: item.itemType,
-                orderIndex: item.orderIndex,
+                orderIndex: iIndex + 1,
                 ...(item.itemType === "TEXT"
                     ? { content: item.content }
                     : { mediaUrl: item.mediaUrl }),
@@ -228,13 +250,18 @@ export default function LessonCreate() {
 
             <Typography variant="h4">Создание урока</Typography>
 
-            {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+            {error && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                    {error}
+                </Alert>
+            )}
 
             {/* META */}
             <Stack spacing={2} sx={{ maxWidth: 600, mt: 3 }}>
                 <TextField
                     required
                     label="Название"
+                    placeholder="Например: Терпение (Сабр)"
                     value={form.title}
                     onChange={(e) => setForm({ ...form, title: e.target.value })}
                 />
@@ -242,13 +269,14 @@ export default function LessonCreate() {
                 <TextField
                     required
                     label="Описание"
+                    placeholder="Коротко опишите цель урока"
                     multiline
                     minRows={3}
                     value={form.description}
                     onChange={(e) => setForm({ ...form, description: e.target.value })}
                 />
 
-                {/* ✅ AGE GROUP (label) */}
+                {/* AGE GROUP */}
                 <FormControl fullWidth required>
                     <Typography fontWeight="bold">Возраст *</Typography>
                     <Select
@@ -267,7 +295,7 @@ export default function LessonCreate() {
                     </Select>
                 </FormControl>
 
-                {/* ✅ LANG (label) */}
+                {/* LANGUAGE */}
                 <FormControl fullWidth required>
                     <Typography fontWeight="bold">Язык *</Typography>
                     <Select
@@ -320,7 +348,7 @@ export default function LessonCreate() {
                 <Paper key={block.id} sx={{ p: 2, mt: 2 }}>
                     <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                         <Typography>
-                            {block.type} (#{block.orderIndex})
+                            {block.type} (orderIndex: {block.orderIndex ?? idx + 1})
                         </Typography>
                         <Box>
                             <IconButton onClick={() => moveBlock(idx, idx - 1)}>
@@ -335,32 +363,52 @@ export default function LessonCreate() {
                         </Box>
                     </Box>
 
-                    {block.items.map((item) =>
-                        item.itemType === "TEXT" ? (
+                    {(block.items ?? []).map((item, itemIdx) => {
+                        const value =
+                            item.itemType === "TEXT"
+                                ? item.content || ""
+                                : item.mediaUrl || "";
+
+                        const placeholder = getItemPlaceholder(item.itemType);
+                        const example = getItemExample(item.itemType);
+
+                        return (
                             <TextField
                                 key={item.id}
                                 fullWidth
-                                multiline
+                                multiline={item.itemType === "TEXT"}
+                                minRows={item.itemType === "TEXT" ? 2 : undefined}
                                 sx={{ mt: 1 }}
-                                value={item.content || ""}
-                                helperText={`orderIndex: ${item.orderIndex}`}
+                                value={value}
+                                placeholder={placeholder}
                                 onChange={(e) =>
-                                    updateItem(block.id, item.id, "content", e.target.value)
+                                    updateItem(
+                                        block.id,
+                                        item.id,
+                                        item.itemType === "TEXT" ? "content" : "mediaUrl",
+                                        e.target.value
+                                    )
                                 }
-                            />
-                        ) : (
-                            <TextField
-                                key={item.id}
-                                fullWidth
-                                sx={{ mt: 1 }}
-                                value={item.mediaUrl || ""}
-                                helperText={`orderIndex: ${item.orderIndex}`}
-                                onChange={(e) =>
-                                    updateItem(block.id, item.id, "mediaUrl", e.target.value)
+                                helperText={
+                                    example
+                                        ? `orderIndex: ${item.orderIndex ?? itemIdx + 1} • ${example}`
+                                        : `orderIndex: ${item.orderIndex ?? itemIdx + 1}`
                                 }
+                                InputProps={{
+                                    endAdornment: (
+                                        <InputAdornment position="end">
+                                            <IconButton
+                                                color="error"
+                                                onClick={() => deleteItem(block.id, item.id)}
+                                            >
+                                                <DeleteIcon />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ),
+                                }}
                             />
-                        )
-                    )}
+                        );
+                    })}
 
                     <Button
                         size="small"
@@ -376,11 +424,7 @@ export default function LessonCreate() {
                 </Paper>
             ))}
 
-            <Button
-                startIcon={<AddIcon />}
-                sx={{ mt: 3 }}
-                onClick={() => setAddBlockDialog(true)}
-            >
+            <Button startIcon={<AddIcon />} sx={{ mt: 3 }} onClick={() => setAddBlockDialog(true)}>
                 Добавить блок
             </Button>
 
@@ -405,7 +449,7 @@ export default function LessonCreate() {
                     </Select>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={addBlock} disabled={!newBlockType}>
+                    <Button onClick={addBlock} disabled={!newBlockType} variant="contained">
                         Добавить
                     </Button>
                 </DialogActions>
@@ -430,7 +474,7 @@ export default function LessonCreate() {
                     </Select>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={addItem} disabled={!newItemType}>
+                    <Button onClick={addItem} disabled={!newItemType} variant="contained">
                         Добавить
                     </Button>
                 </DialogActions>

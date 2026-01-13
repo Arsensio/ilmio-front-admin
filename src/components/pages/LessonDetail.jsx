@@ -52,19 +52,36 @@ export default function LessonDetail() {
     const [newBlockType, setNewBlockType] = useState("");
     const [newItemType, setNewItemType] = useState("");
 
+    /* ================= PLACEHOLDER HELPERS ================= */
+
+    const getItemPlaceholder = (itemType) => {
+        if (itemType === "TEXT") return "Введите текст…";
+        if (itemType === "IMAGE") return "Вставьте ссылку на картинку…";
+        if (itemType === "VIDEO") return "Вставьте ссылку на видео…";
+        return "";
+    };
+
+    const getItemExample = (itemType) => {
+        if (itemType === "IMAGE")
+            return "Пример: https://example.com/image.png";
+        if (itemType === "VIDEO")
+            return "Пример: https://youtube.com/watch?v=xxxx";
+        return "";
+    };
+
     /* ================= ORDER HELPERS ================= */
+
+    const recalcItemOrder = (items) =>
+        items.map((it, i) => ({
+            ...it,
+            orderIndex: i + 1,
+        }));
 
     const recalcBlockOrder = (blocks) =>
         blocks.map((b, i) => ({
             ...b,
             orderIndex: i + 1,
             items: Array.isArray(b.items) ? recalcItemOrder(b.items) : [],
-        }));
-
-    const recalcItemOrder = (items) =>
-        items.map((it, i) => ({
-            ...it,
-            orderIndex: i + 1,
         }));
 
     /* ================= LOAD DATA ================= */
@@ -91,8 +108,9 @@ export default function LessonDetail() {
 
                 const lesson = lessonRes.data;
 
-                // ✅ на всякий случай приводим orderIndex если его нет
-                const normalizedBlocks = recalcBlockOrder(Array.isArray(lesson.blocks) ? lesson.blocks : []);
+                const normalizedBlocks = recalcBlockOrder(
+                    Array.isArray(lesson.blocks) ? lesson.blocks : []
+                );
 
                 setForm({
                     ...lesson,
@@ -144,7 +162,7 @@ export default function LessonDetail() {
             ...form.blocks,
             {
                 id: Date.now(),
-                type: newBlockType, // code
+                type: newBlockType,
                 orderIndex: (form.blocks?.length || 0) + 1,
                 items: [],
             },
@@ -212,7 +230,9 @@ export default function LessonDetail() {
                 ? b
                 : {
                     ...b,
-                    items: recalcItemOrder((b.items || []).filter((it) => it.id !== itemId)),
+                    items: recalcItemOrder(
+                        (b.items || []).filter((it) => it.id !== itemId)
+                    ),
                 }
         );
 
@@ -247,8 +267,6 @@ export default function LessonDetail() {
     if (error) return <Alert severity="error">{error}</Alert>;
     if (!form) return null;
 
-    /* ================= UI ================= */
-
     return (
         <Box sx={{ p: 3 }}>
             {/* HEADER */}
@@ -268,6 +286,7 @@ export default function LessonDetail() {
             <Stack spacing={2} sx={{ maxWidth: 600, mt: 3 }}>
                 <TextField
                     label="Название"
+                    placeholder="Например: Терпение (Сабр)"
                     value={form.title || ""}
                     disabled={!isEditing}
                     onChange={(e) => setForm({ ...form, title: e.target.value })}
@@ -275,6 +294,7 @@ export default function LessonDetail() {
 
                 <TextField
                     label="Описание"
+                    placeholder="Коротко опишите цель урока"
                     multiline
                     minRows={3}
                     value={form.description || ""}
@@ -287,80 +307,35 @@ export default function LessonDetail() {
 
             {/* META */}
             <Stack spacing={2} sx={{ maxWidth: 400, mt: 4 }}>
-                {/* LEVEL */}
-                <FormControl fullWidth>
-                    <Typography fontWeight="bold">Уровень</Typography>
-                    {isEditing ? (
-                        <Select
-                            value={form.level || ""}
-                            displayEmpty
-                            onChange={(e) =>
-                                setForm({ ...form, level: e.target.value })
-                            }
-                        >
-                            <MenuItem value="">
-                                <em>Выберите</em>
-                            </MenuItem>
-                            {levels.map((o) => (
-                                <MenuItem key={o.code} value={o.code}>
-                                    {o.label}
+                {[
+                    ["level", "Уровень", levels],
+                    ["status", "Статус", statuses],
+                    ["category", "Категория", categories],
+                ].map(([key, label, options]) => (
+                    <FormControl key={key} fullWidth>
+                        <Typography fontWeight="bold">{label}</Typography>
+                        {isEditing ? (
+                            <Select
+                                value={form[key] || ""}
+                                displayEmpty
+                                onChange={(e) =>
+                                    setForm({ ...form, [key]: e.target.value })
+                                }
+                            >
+                                <MenuItem value="">
+                                    <em>Выберите</em>
                                 </MenuItem>
-                            ))}
-                        </Select>
-                    ) : (
-                        <Typography>{form.level}</Typography>
-                    )}
-                </FormControl>
-
-                {/* STATUS */}
-                <FormControl fullWidth>
-                    <Typography fontWeight="bold">Статус</Typography>
-                    {isEditing ? (
-                        <Select
-                            value={form.status || ""}
-                            displayEmpty
-                            onChange={(e) =>
-                                setForm({ ...form, status: e.target.value })
-                            }
-                        >
-                            <MenuItem value="">
-                                <em>Выберите</em>
-                            </MenuItem>
-                            {statuses.map((o) => (
-                                <MenuItem key={o.code} value={o.code}>
-                                    {o.label}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    ) : (
-                        <Typography>{form.status}</Typography>
-                    )}
-                </FormControl>
-
-                {/* CATEGORY */}
-                <FormControl fullWidth>
-                    <Typography fontWeight="bold">Категория</Typography>
-                    {isEditing ? (
-                        <Select
-                            value={form.category || ""}
-                            displayEmpty
-                            onChange={(e) =>
-                                setForm({ ...form, category: e.target.value })
-                            }
-                        >
-                            <MenuItem value="">
-                                <em>Выберите</em>
-                            </MenuItem>
-                            {categories.map((o) => (
-                                <MenuItem key={o.code} value={o.code}>
-                                    {o.label}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    ) : (
-                        <Typography>{form.category}</Typography>
-                    )}
-                </FormControl>
+                                {options.map((o) => (
+                                    <MenuItem key={o.code} value={o.code}>
+                                        {o.label}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        ) : (
+                            <Typography>{form[key]}</Typography>
+                        )}
+                    </FormControl>
+                ))}
 
                 {/* AGE GROUP */}
                 <FormControl fullWidth>
@@ -444,25 +419,46 @@ export default function LessonDetail() {
                     </Box>
 
                     {/* ITEMS */}
-                    {(block.items || []).map((item, itemIdx) =>
-                        item.itemType === "TEXT" ? (
+                    {(block.items || []).map((item, itemIdx) => {
+                        const value =
+                            item.itemType === "TEXT"
+                                ? item.content || ""
+                                : item.mediaUrl || "";
+
+                        const placeholder = getItemPlaceholder(item.itemType);
+                        const example = getItemExample(item.itemType);
+
+                        return (
                             <TextField
                                 key={item.id}
                                 fullWidth
-                                multiline
+                                multiline={item.itemType === "TEXT"}
+                                minRows={item.itemType === "TEXT" ? 2 : undefined}
                                 sx={{ mt: 1 }}
                                 disabled={!isEditing}
-                                value={item.content || ""}
+                                value={value}
+                                placeholder={placeholder}
                                 onChange={(e) =>
-                                    updateItem(block.id, item.id, "content", e.target.value)
+                                    updateItem(
+                                        block.id,
+                                        item.id,
+                                        item.itemType === "TEXT" ? "content" : "mediaUrl",
+                                        e.target.value
+                                    )
                                 }
-                                helperText={`orderIndex: ${item.orderIndex ?? itemIdx + 1}`}
+                                helperText={
+                                    example
+                                        ? `orderIndex: ${item.orderIndex ?? itemIdx + 1} • ${example}`
+                                        : `orderIndex: ${item.orderIndex ?? itemIdx + 1}`
+                                }
                                 InputProps={{
                                     endAdornment: isEditing && (
                                         <InputAdornment position="end">
                                             <IconButton
                                                 color="error"
-                                                onClick={() => deleteItem(block.id, item.id)}
+                                                onClick={() =>
+                                                    deleteItem(block.id, item.id)
+                                                }
                                             >
                                                 <DeleteIcon />
                                             </IconButton>
@@ -470,40 +466,8 @@ export default function LessonDetail() {
                                     ),
                                 }}
                             />
-                        ) : isEditing ? (
-                            <TextField
-                                key={item.id}
-                                fullWidth
-                                sx={{ mt: 1 }}
-                                value={item.mediaUrl || ""}
-                                onChange={(e) =>
-                                    updateItem(block.id, item.id, "mediaUrl", e.target.value)
-                                }
-                                helperText={`orderIndex: ${item.orderIndex ?? itemIdx + 1}`}
-                                InputProps={{
-                                    endAdornment: (
-                                        <InputAdornment position="end">
-                                            <IconButton
-                                                color="error"
-                                                onClick={() => deleteItem(block.id, item.id)}
-                                            >
-                                                <DeleteIcon />
-                                            </IconButton>
-                                        </InputAdornment>
-                                    ),
-                                }}
-                            />
-                        ) : (
-                            <Box key={item.id} sx={{ mt: 1 }}>
-                                <Typography variant="body2">
-                                    orderIndex: {item.orderIndex ?? itemIdx + 1}
-                                </Typography>
-                                <a href={item.mediaUrl} target="_blank" rel="noopener noreferrer">
-                                    {item.mediaUrl}
-                                </a>
-                            </Box>
-                        )
-                    )}
+                        );
+                    })}
 
                     {isEditing && (
                         <Button
@@ -546,7 +510,6 @@ export default function LessonDetail() {
                                 <em>Выберите тип</em>
                             </MenuItem>
 
-                            {/* ✅ blockTypes = [{code,label}] */}
                             {blockTypes.map((t) => (
                                 <MenuItem key={t.code} value={t.code}>
                                     {t.label}
