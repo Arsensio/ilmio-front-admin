@@ -30,9 +30,8 @@ import { createLesson, getFilterData } from "@/api/lessons";
 export default function LessonCreate() {
     const navigate = useNavigate();
 
-    /* ================= FORM ================= */
     const [form, setForm] = useState({
-        ageGroup: "",
+        ageGroup: "",   // ✅ теперь code типа AGE_5_6
         level: "",
         status: "",
         category: "",
@@ -44,38 +43,40 @@ export default function LessonCreate() {
 
     const [error, setError] = useState("");
 
-    /* ================= FILTERS ================= */
+    const [ageGroups, setAgeGroups] = useState([]);
     const [levels, setLevels] = useState([]);
     const [statuses, setStatuses] = useState([]);
     const [categories, setCategories] = useState([]);
     const [langs, setLangs] = useState([]);
     const [blockTypes, setBlockTypes] = useState([]);
 
-    /* ================= UI STATE ================= */
     const [addBlockDialog, setAddBlockDialog] = useState(false);
     const [addItemDialog, setAddItemDialog] = useState(false);
     const [selectedBlockId, setSelectedBlockId] = useState(null);
     const [newBlockType, setNewBlockType] = useState("");
     const [newItemType, setNewItemType] = useState("");
 
-    /* ================= LOAD FILTER DATA ================= */
     useEffect(() => {
         const load = async () => {
             try {
                 const data = await getFilterData();
+
+                setAgeGroups(data.ageGroups ?? []);
                 setLevels(data.levels ?? []);
                 setStatuses(data.statuses ?? []);
                 setCategories(data.categories ?? []);
                 setLangs(data.langs ?? []);
                 setBlockTypes(data.blockTypes ?? []);
-            } catch {
+            } catch (e) {
+                console.error(e);
                 setError("Ошибка загрузки справочников");
             }
         };
+
         load();
     }, []);
 
-    /* ================= ORDER HELPERS (как в Detail) ================= */
+    /* ============ ORDER HELPERS ============ */
 
     const recalcBlockOrder = (blocks) =>
         blocks.map((b, i) => ({ ...b, orderIndex: i + 1 }));
@@ -83,7 +84,7 @@ export default function LessonCreate() {
     const recalcItemOrder = (items) =>
         items.map((it, i) => ({ ...it, orderIndex: i + 1 }));
 
-    /* ================= BLOCK ACTIONS ================= */
+    /* ============ BLOCKS ============ */
 
     const moveBlock = (from, to) => {
         if (to < 0 || to >= form.blocks.length) return;
@@ -99,15 +100,15 @@ export default function LessonCreate() {
     };
 
     const addBlock = () => {
-        const blocks = [
+        const blocks = recalcBlockOrder([
             ...form.blocks,
             {
                 id: Date.now(),
                 type: newBlockType,
-                orderIndex: form.blocks.length + 1,
                 items: [],
             },
-        ];
+        ]);
+
         setForm({ ...form, blocks });
         setNewBlockType("");
         setAddBlockDialog(false);
@@ -160,40 +161,61 @@ export default function LessonCreate() {
                     ? b
                     : {
                         ...b,
-                        items: recalcItemOrder(
-                            b.items.filter(it => it.id !== itemId)
-                        ),
+                        items: recalcItemOrder(b.items.filter(it => it.id !== itemId)),
                     }
             ),
         });
     };
 
-    /* ================= SAVE ================= */
+    /* ============ BUILD PAYLOAD ============ */
+
+    const buildPayload = () => ({
+        ageGroup: form.ageGroup,
+        level: form.level,
+        status: form.status,
+        category: form.category,
+        lang: form.lang,
+        title: form.title,
+        description: form.description,
+        blocks: form.blocks.map((block) => ({
+            type: block.type,
+            orderIndex: block.orderIndex,
+            items: block.items.map((item) => ({
+                itemType: item.itemType,
+                orderIndex: item.orderIndex,
+                ...(item.itemType === "TEXT"
+                    ? { content: item.content }
+                    : { mediaUrl: item.mediaUrl }),
+            })),
+        })),
+    });
+
+    /* ============ SAVE ============ */
 
     const handleCreate = async () => {
+        setError("");
+
         if (
+            !form.title ||
+            !form.description ||
             !form.ageGroup ||
             !form.level ||
             !form.status ||
             !form.category ||
-            !form.lang ||
-            !form.title ||
-            !form.description
+            !form.lang
         ) {
             setError("Заполните все обязательные поля");
             return;
         }
 
         try {
-            await createLesson(form);
+            await createLesson(buildPayload());
             navigate("/lessons");
         } catch (e) {
             console.error(e);
             setError("Ошибка при создании урока");
         }
     };
-
-    /* ================= UI ================= */
 
     return (
         <Box sx={{ p: 3 }}>
@@ -205,44 +227,61 @@ export default function LessonCreate() {
             </Box>
 
             <Typography variant="h4">Создание урока</Typography>
-            {error && <Alert severity="error">{error}</Alert>}
 
-            {/* ================= META (ОБЯЗАТЕЛЬНЫЕ ПОЛЯ) ================= */}
+            {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+
+            {/* META */}
             <Stack spacing={2} sx={{ maxWidth: 600, mt: 3 }}>
                 <TextField
-                    label="Название *"
+                    required
+                    label="Название"
                     value={form.title}
                     onChange={(e) => setForm({ ...form, title: e.target.value })}
                 />
 
                 <TextField
-                    label="Описание *"
+                    required
+                    label="Описание"
                     multiline
                     minRows={3}
                     value={form.description}
-                    onChange={(e) =>
-                        setForm({ ...form, description: e.target.value })
-                    }
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
                 />
 
-                <TextField
-                    label="Возраст *"
-                    value={form.ageGroup}
-                    onChange={(e) =>
-                        setForm({ ...form, ageGroup: e.target.value })
-                    }
-                />
+                {/* ✅ AGE GROUP (label) */}
+                <FormControl fullWidth required>
+                    <Typography fontWeight="bold">Возраст *</Typography>
+                    <Select
+                        value={form.ageGroup}
+                        displayEmpty
+                        onChange={(e) => setForm({ ...form, ageGroup: e.target.value })}
+                    >
+                        <MenuItem value="">
+                            <em>Выберите возраст</em>
+                        </MenuItem>
+                        {ageGroups.map((o) => (
+                            <MenuItem key={o.code} value={o.code}>
+                                {o.label}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
 
-                <FormControl fullWidth>
+                {/* ✅ LANG (label) */}
+                <FormControl fullWidth required>
                     <Typography fontWeight="bold">Язык *</Typography>
                     <Select
                         value={form.lang}
-                        onChange={(e) =>
-                            setForm({ ...form, lang: e.target.value })
-                        }
+                        displayEmpty
+                        onChange={(e) => setForm({ ...form, lang: e.target.value })}
                     >
-                        {langs.map(l => (
-                            <MenuItem key={l} value={l}>{l}</MenuItem>
+                        <MenuItem value="">
+                            <em>Выберите язык</em>
+                        </MenuItem>
+                        {langs.map((o) => (
+                            <MenuItem key={o.code} value={o.code}>
+                                {o.label}
+                            </MenuItem>
                         ))}
                     </Select>
                 </FormControl>
@@ -252,16 +291,20 @@ export default function LessonCreate() {
                     ["status", "Статус *", statuses],
                     ["category", "Категория *", categories],
                 ].map(([key, label, options]) => (
-                    <FormControl key={key} fullWidth>
+                    <FormControl key={key} fullWidth required>
                         <Typography fontWeight="bold">{label}</Typography>
                         <Select
                             value={form[key]}
-                            onChange={(e) =>
-                                setForm({ ...form, [key]: e.target.value })
-                            }
+                            displayEmpty
+                            onChange={(e) => setForm({ ...form, [key]: e.target.value })}
                         >
-                            {options.map(o => (
-                                <MenuItem key={o} value={o}>{o}</MenuItem>
+                            <MenuItem value="">
+                                <em>Выберите</em>
+                            </MenuItem>
+                            {options.map((o) => (
+                                <MenuItem key={o.code} value={o.code}>
+                                    {o.label}
+                                </MenuItem>
                             ))}
                         </Select>
                     </FormControl>
@@ -270,7 +313,7 @@ export default function LessonCreate() {
 
             <Divider sx={{ my: 4 }} />
 
-            {/* ================= BLOCKS ================= */}
+            {/* BLOCKS */}
             <Typography variant="h5">Blocks</Typography>
 
             {form.blocks.map((block, idx) => (
@@ -292,23 +335,32 @@ export default function LessonCreate() {
                         </Box>
                     </Box>
 
-                    {block.items.map(item => (
-                        <TextField
-                            key={item.id}
-                            fullWidth
-                            sx={{ mt: 1 }}
-                            value={item.content || item.mediaUrl || ""}
-                            onChange={(e) =>
-                                updateItem(
-                                    block.id,
-                                    item.id,
-                                    item.itemType === "TEXT" ? "content" : "mediaUrl",
-                                    e.target.value
-                                )
-                            }
-                            helperText={`orderIndex: ${item.orderIndex}`}
-                        />
-                    ))}
+                    {block.items.map((item) =>
+                        item.itemType === "TEXT" ? (
+                            <TextField
+                                key={item.id}
+                                fullWidth
+                                multiline
+                                sx={{ mt: 1 }}
+                                value={item.content || ""}
+                                helperText={`orderIndex: ${item.orderIndex}`}
+                                onChange={(e) =>
+                                    updateItem(block.id, item.id, "content", e.target.value)
+                                }
+                            />
+                        ) : (
+                            <TextField
+                                key={item.id}
+                                fullWidth
+                                sx={{ mt: 1 }}
+                                value={item.mediaUrl || ""}
+                                helperText={`orderIndex: ${item.orderIndex}`}
+                                onChange={(e) =>
+                                    updateItem(block.id, item.id, "mediaUrl", e.target.value)
+                                }
+                            />
+                        )
+                    )}
 
                     <Button
                         size="small"
@@ -339,11 +391,15 @@ export default function LessonCreate() {
                     <Select
                         fullWidth
                         value={newBlockType}
+                        displayEmpty
                         onChange={(e) => setNewBlockType(e.target.value)}
                     >
-                        {blockTypes.map(t => (
+                        <MenuItem value="">
+                            <em>Выберите тип</em>
+                        </MenuItem>
+                        {blockTypes.map((t) => (
                             <MenuItem key={t.code} value={t.code}>
-                                {t.name}
+                                {t.label}
                             </MenuItem>
                         ))}
                     </Select>
@@ -362,8 +418,12 @@ export default function LessonCreate() {
                     <Select
                         fullWidth
                         value={newItemType}
+                        displayEmpty
                         onChange={(e) => setNewItemType(e.target.value)}
                     >
+                        <MenuItem value="">
+                            <em>Выберите тип</em>
+                        </MenuItem>
                         <MenuItem value="TEXT">TEXT</MenuItem>
                         <MenuItem value="IMAGE">IMAGE</MenuItem>
                         <MenuItem value="VIDEO">VIDEO</MenuItem>
