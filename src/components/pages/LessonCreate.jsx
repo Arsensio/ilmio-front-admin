@@ -25,21 +25,18 @@ import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 
-import {
-    createLesson,
-    getFilterData, // 👈 ВАЖНО
-} from "@/api/lessons";
+import { createLesson, getFilterData } from "@/api/lessons";
 
 export default function LessonCreate() {
     const navigate = useNavigate();
 
-    /* ================= FORM STATE ================= */
+    /* ================= FORM ================= */
     const [form, setForm] = useState({
         ageGroup: "",
         level: "",
         status: "",
         category: "",
-        lang: "",          // 👈 ОБЯЗАТЕЛЬНО
+        lang: "",
         title: "",
         description: "",
         blocks: [],
@@ -47,28 +44,30 @@ export default function LessonCreate() {
 
     const [error, setError] = useState("");
 
+    /* ================= FILTERS ================= */
     const [levels, setLevels] = useState([]);
     const [statuses, setStatuses] = useState([]);
     const [categories, setCategories] = useState([]);
-    const [langs, setLangs] = useState([]);        // 👈 ЯЗЫКИ
+    const [langs, setLangs] = useState([]);
     const [blockTypes, setBlockTypes] = useState([]);
 
+    /* ================= UI STATE ================= */
     const [addBlockDialog, setAddBlockDialog] = useState(false);
     const [addItemDialog, setAddItemDialog] = useState(false);
     const [selectedBlockId, setSelectedBlockId] = useState(null);
     const [newBlockType, setNewBlockType] = useState("");
     const [newItemType, setNewItemType] = useState("");
 
-    /* ================= LOAD FILTERS ================= */
+    /* ================= LOAD FILTER DATA ================= */
     useEffect(() => {
         const load = async () => {
             try {
                 const data = await getFilterData();
-
-                setLevels(data.levels);
-                setStatuses(data.statuses);
-                setCategories(data.categories);
-                setLangs(data.langs);   // 👈 ТУТ
+                setLevels(data.levels ?? []);
+                setStatuses(data.statuses ?? []);
+                setCategories(data.categories ?? []);
+                setLangs(data.langs ?? []);
+                setBlockTypes(data.blockTypes ?? []);
             } catch {
                 setError("Ошибка загрузки справочников");
             }
@@ -76,35 +75,40 @@ export default function LessonCreate() {
         load();
     }, []);
 
-    /* ================= BLOCK HELPERS ================= */
+    /* ================= ORDER HELPERS (как в Detail) ================= */
+
+    const recalcBlockOrder = (blocks) =>
+        blocks.map((b, i) => ({ ...b, orderIndex: i + 1 }));
+
+    const recalcItemOrder = (items) =>
+        items.map((it, i) => ({ ...it, orderIndex: i + 1 }));
+
+    /* ================= BLOCK ACTIONS ================= */
 
     const moveBlock = (from, to) => {
         if (to < 0 || to >= form.blocks.length) return;
         const blocks = [...form.blocks];
         const [moved] = blocks.splice(from, 1);
         blocks.splice(to, 0, moved);
-        setForm({ ...form, blocks });
+        setForm({ ...form, blocks: recalcBlockOrder(blocks) });
     };
 
     const deleteBlock = (blockId) => {
-        setForm({
-            ...form,
-            blocks: form.blocks.filter(b => b.id !== blockId),
-        });
+        const blocks = form.blocks.filter(b => b.id !== blockId);
+        setForm({ ...form, blocks: recalcBlockOrder(blocks) });
     };
 
     const addBlock = () => {
-        setForm({
-            ...form,
-            blocks: [
-                ...form.blocks,
-                {
-                    id: Date.now(),
-                    type: newBlockType,
-                    items: [],
-                },
-            ],
-        });
+        const blocks = [
+            ...form.blocks,
+            {
+                id: Date.now(),
+                type: newBlockType,
+                orderIndex: form.blocks.length + 1,
+                items: [],
+            },
+        ];
+        setForm({ ...form, blocks });
         setNewBlockType("");
         setAddBlockDialog(false);
     };
@@ -117,15 +121,16 @@ export default function LessonCreate() {
                     ? b
                     : {
                         ...b,
-                        items: [
+                        items: recalcItemOrder([
                             ...b.items,
                             newItemType === "TEXT"
                                 ? { id: Date.now(), itemType: "TEXT", content: "" }
                                 : { id: Date.now(), itemType: newItemType, mediaUrl: "" },
-                        ],
+                        ]),
                     }
             ),
         });
+
         setNewItemType("");
         setSelectedBlockId(null);
         setAddItemDialog(false);
@@ -153,7 +158,12 @@ export default function LessonCreate() {
             blocks: form.blocks.map(b =>
                 b.id !== blockId
                     ? b
-                    : { ...b, items: b.items.filter(it => it.id !== itemId) }
+                    : {
+                        ...b,
+                        items: recalcItemOrder(
+                            b.items.filter(it => it.id !== itemId)
+                        ),
+                    }
             ),
         });
     };
@@ -161,23 +171,24 @@ export default function LessonCreate() {
     /* ================= SAVE ================= */
 
     const handleCreate = async () => {
-        try {
-            if (
-                !form.ageGroup ||
-                !form.level ||
-                !form.status ||
-                !form.category ||
-                !form.lang ||
-                !form.title ||
-                !form.description
-            ) {
-                setError("Заполните все обязательные поля");
-                return;
-            }
+        if (
+            !form.ageGroup ||
+            !form.level ||
+            !form.status ||
+            !form.category ||
+            !form.lang ||
+            !form.title ||
+            !form.description
+        ) {
+            setError("Заполните все обязательные поля");
+            return;
+        }
 
+        try {
             await createLesson(form);
             navigate("/lessons");
-        } catch {
+        } catch (e) {
+            console.error(e);
             setError("Ошибка при создании урока");
         }
     };
@@ -194,10 +205,9 @@ export default function LessonCreate() {
             </Box>
 
             <Typography variant="h4">Создание урока</Typography>
+            {error && <Alert severity="error">{error}</Alert>}
 
-            {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
-
-            {/* META */}
+            {/* ================= META (ОБЯЗАТЕЛЬНЫЕ ПОЛЯ) ================= */}
             <Stack spacing={2} sx={{ maxWidth: 600, mt: 3 }}>
                 <TextField
                     label="Название *"
@@ -223,7 +233,6 @@ export default function LessonCreate() {
                     }
                 />
 
-                {/* 🌍 LANGUAGE */}
                 <FormControl fullWidth>
                     <Typography fontWeight="bold">Язык *</Typography>
                     <Select
@@ -261,13 +270,15 @@ export default function LessonCreate() {
 
             <Divider sx={{ my: 4 }} />
 
-            {/* BLOCKS */}
-            <Typography variant="h5">Blocks (опционально)</Typography>
+            {/* ================= BLOCKS ================= */}
+            <Typography variant="h5">Blocks</Typography>
 
             {form.blocks.map((block, idx) => (
                 <Paper key={block.id} sx={{ p: 2, mt: 2 }}>
                     <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                        <Typography>{block.type}</Typography>
+                        <Typography>
+                            {block.type} (#{block.orderIndex})
+                        </Typography>
                         <Box>
                             <IconButton onClick={() => moveBlock(idx, idx - 1)}>
                                 <ArrowUpwardIcon />
@@ -281,58 +292,23 @@ export default function LessonCreate() {
                         </Box>
                     </Box>
 
-                    {block.items.map(item =>
-                        item.itemType === "TEXT" ? (
-                            <TextField
-                                key={item.id}
-                                fullWidth
-                                multiline
-                                sx={{ mt: 1 }}
-                                value={item.content || ""}
-                                onChange={(e) =>
-                                    updateItem(block.id, item.id, "content", e.target.value)
-                                }
-                                InputProps={{
-                                    endAdornment: (
-                                        <InputAdornment position="end">
-                                            <IconButton
-                                                color="error"
-                                                onClick={() =>
-                                                    deleteItem(block.id, item.id)
-                                                }
-                                            >
-                                                <DeleteIcon />
-                                            </IconButton>
-                                        </InputAdornment>
-                                    ),
-                                }}
-                            />
-                        ) : (
-                            <TextField
-                                key={item.id}
-                                fullWidth
-                                sx={{ mt: 1 }}
-                                value={item.mediaUrl || ""}
-                                onChange={(e) =>
-                                    updateItem(block.id, item.id, "mediaUrl", e.target.value)
-                                }
-                                InputProps={{
-                                    endAdornment: (
-                                        <InputAdornment position="end">
-                                            <IconButton
-                                                color="error"
-                                                onClick={() =>
-                                                    deleteItem(block.id, item.id)
-                                                }
-                                            >
-                                                <DeleteIcon />
-                                            </IconButton>
-                                        </InputAdornment>
-                                    ),
-                                }}
-                            />
-                        )
-                    )}
+                    {block.items.map(item => (
+                        <TextField
+                            key={item.id}
+                            fullWidth
+                            sx={{ mt: 1 }}
+                            value={item.content || item.mediaUrl || ""}
+                            onChange={(e) =>
+                                updateItem(
+                                    block.id,
+                                    item.id,
+                                    item.itemType === "TEXT" ? "content" : "mediaUrl",
+                                    e.target.value
+                                )
+                            }
+                            helperText={`orderIndex: ${item.orderIndex}`}
+                        />
+                    ))}
 
                     <Button
                         size="small"
@@ -366,7 +342,9 @@ export default function LessonCreate() {
                         onChange={(e) => setNewBlockType(e.target.value)}
                     >
                         {blockTypes.map(t => (
-                            <MenuItem key={t} value={t}>{t}</MenuItem>
+                            <MenuItem key={t.code} value={t.code}>
+                                {t.name}
+                            </MenuItem>
                         ))}
                     </Select>
                 </DialogContent>

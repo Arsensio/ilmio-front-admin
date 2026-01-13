@@ -33,11 +33,12 @@ export const getDictionary = (type) => {
  * Словари для фильтров в списке уроков
  */
 export const getFilterData = async () => {
-    const [levels, statuses, categories, langs] = await Promise.all([
+    const [levels, statuses, categories, langs, blockTypes] = await Promise.all([
         getDictionary("LEVEL"),
         getDictionary("STATUS"),
         getDictionary("CATEGORY"),
         getDictionary("LANGUAGE"),
+        getDictionary("BLOCK_TYPE"),
     ]);
 
     return {
@@ -45,6 +46,7 @@ export const getFilterData = async () => {
         statuses: statuses.data,
         categories: categories.data,
         langs: langs.data,
+        blockTypes: blockTypes.data,
     };
 };
 
