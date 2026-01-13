@@ -25,8 +25,13 @@ import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
+import UploadIcon from "@mui/icons-material/Upload";
 
 import { getLessonById, updateLesson, getDictionary } from "@/api/lessons";
+import { uploadImage, buildImagePreviewUrl, extractObjectKey } from "@/api/images";
+
+const isHttpUrl = (v) =>
+    typeof v === "string" && (v.startsWith("http://") || v.startsWith("https://"));
 
 export default function LessonDetail() {
     const { id } = useParams();
@@ -37,7 +42,7 @@ export default function LessonDetail() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
-    // ✅ dictionaries: [{code,label}]
+    // dictionaries: [{code,label}]
     const [levels, setLevels] = useState([]);
     const [statuses, setStatuses] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -52,51 +57,58 @@ export default function LessonDetail() {
     const [newBlockType, setNewBlockType] = useState("");
     const [newItemType, setNewItemType] = useState("");
 
-    /* ================= PLACEHOLDER HELPERS ================= */
-
-    const getItemPlaceholder = (itemType) => {
-        if (itemType === "TEXT") return "Введите текст…";
-        if (itemType === "IMAGE") return "Вставьте ссылку на картинку…";
-        if (itemType === "VIDEO") return "Вставьте ссылку на видео…";
-        return "";
-    };
-
-    const getItemExample = (itemType) => {
-        if (itemType === "IMAGE")
-            return "Пример: https://example.com/image.png";
-        if (itemType === "VIDEO")
-            return "Пример: https://youtube.com/watch?v=xxxx";
-        return "";
-    };
-
-    /* ================= ORDER HELPERS ================= */
+    /* ================= HELPERS ================= */
 
     const recalcItemOrder = (items) =>
-        items.map((it, i) => ({
-            ...it,
-            orderIndex: i + 1,
-        }));
+        (items ?? []).map((it, i) => ({ ...it, orderIndex: i + 1 }));
 
     const recalcBlockOrder = (blocks) =>
-        blocks.map((b, i) => ({
+        (blocks ?? []).map((b, i) => ({
             ...b,
             orderIndex: i + 1,
-            items: Array.isArray(b.items) ? recalcItemOrder(b.items) : [],
+            items: recalcItemOrder(b.items ?? []),
         }));
 
-    /* ================= LOAD DATA ================= */
+    const patchItem = (blockId, itemId, patch) => {
+        setForm((prev) => {
+            if (!prev) return prev;
+
+            return {
+                ...prev,
+                blocks: (prev.blocks ?? []).map((b) =>
+                    b.id !== blockId
+                        ? b
+                        : {
+                            ...b,
+                            items: (b.items ?? []).map((it) =>
+                                it.id !== itemId ? it : { ...it, ...patch }
+                            ),
+                        }
+                ),
+            };
+        });
+    };
+
+    const deleteItem = (blockId, itemId) => {
+        setForm((prev) => {
+            if (!prev) return prev;
+
+            const blocks = (prev.blocks ?? []).map((b) => {
+                if (b.id !== blockId) return b;
+                const items = (b.items ?? []).filter((it) => it.id !== itemId);
+                return { ...b, items: recalcItemOrder(items) };
+            });
+
+            return { ...prev, blocks: recalcBlockOrder(blocks) };
+        });
+    };
+
+    /* ================= LOAD ================= */
+
     useEffect(() => {
         const load = async () => {
             try {
-                const [
-                    lessonRes,
-                    lvl,
-                    st,
-                    cat,
-                    age,
-                    lang,
-                    blocks,
-                ] = await Promise.all([
+                const [lessonRes, lvl, st, cat, age, lang, blocks] = await Promise.all([
                     getLessonById(id),
                     getDictionary("LEVEL"),
                     getDictionary("STATUS"),
@@ -110,19 +122,29 @@ export default function LessonDetail() {
 
                 const normalizedBlocks = recalcBlockOrder(
                     Array.isArray(lesson.blocks) ? lesson.blocks : []
-                );
+                ).map((b) => ({
+                    ...b,
+                    items: (b.items ?? []).map((it) => {
+                        if (it.itemType !== "IMAGE") return it;
 
-                setForm({
-                    ...lesson,
-                    blocks: normalizedBlocks,
-                });
+                        // backend присылает ссылку в mediaUrl -> preview = mediaUrl
+                        return {
+                            ...it,
+                            previewUrl: it.mediaUrl,
+                            file: null,
+                            uploading: false,
+                        };
+                    }),
+                }));
 
-                setLevels(Array.isArray(lvl.data) ? lvl.data : []);
-                setStatuses(Array.isArray(st.data) ? st.data : []);
-                setCategories(Array.isArray(cat.data) ? cat.data : []);
-                setAgeGroups(Array.isArray(age.data) ? age.data : []);
-                setLangs(Array.isArray(lang.data) ? lang.data : []);
-                setBlockTypes(Array.isArray(blocks.data) ? blocks.data : []);
+                setForm({ ...lesson, blocks: normalizedBlocks });
+
+                setLevels(lvl.data ?? []);
+                setStatuses(st.data ?? []);
+                setCategories(cat.data ?? []);
+                setAgeGroups(age.data ?? []);
+                setLangs(lang.data ?? []);
+                setBlockTypes(blocks.data ?? []);
             } catch (e) {
                 console.error(e);
                 setError("Ошибка загрузки урока");
@@ -134,126 +156,214 @@ export default function LessonDetail() {
         load();
     }, [id]);
 
-    /* ================= BLOCK ACTIONS ================= */
+    /* ================= BLOCKS ================= */
 
     const moveBlock = (from, to) => {
-        if (!form) return;
-        if (to < 0 || to >= form.blocks.length) return;
+        setForm((prev) => {
+            if (!prev) return prev;
+            if (to < 0 || to >= (prev.blocks ?? []).length) return prev;
 
-        const blocks = [...form.blocks];
-        const [moved] = blocks.splice(from, 1);
-        blocks.splice(to, 0, moved);
+            const blocks = [...(prev.blocks ?? [])];
+            const [moved] = blocks.splice(from, 1);
+            blocks.splice(to, 0, moved);
 
-        setForm({ ...form, blocks: recalcBlockOrder(blocks) });
+            return { ...prev, blocks: recalcBlockOrder(blocks) };
+        });
     };
 
     const deleteBlock = (blockId) => {
-        if (!form) return;
-
-        const blocks = form.blocks.filter((b) => b.id !== blockId);
-        setForm({ ...form, blocks: recalcBlockOrder(blocks) });
+        setForm((prev) => {
+            if (!prev) return prev;
+            const blocks = (prev.blocks ?? []).filter((b) => b.id !== blockId);
+            return { ...prev, blocks: recalcBlockOrder(blocks) };
+        });
     };
 
     const addBlock = () => {
-        if (!form) return;
         if (!newBlockType) return;
 
-        const blocks = [
-            ...form.blocks,
-            {
-                id: Date.now(),
-                type: newBlockType,
-                orderIndex: (form.blocks?.length || 0) + 1,
-                items: [],
-            },
-        ];
+        setForm((prev) => {
+            if (!prev) return prev;
+            const blocks = recalcBlockOrder([
+                ...(prev.blocks ?? []),
+                { id: Date.now(), type: newBlockType, items: [] },
+            ]);
+            return { ...prev, blocks };
+        });
 
-        setForm({ ...form, blocks: recalcBlockOrder(blocks) });
         setNewBlockType("");
         setAddBlockDialog(false);
     };
 
+    /* ================= ITEMS ================= */
+
     const addItem = () => {
-        if (!form) return;
         if (!selectedBlockId || !newItemType) return;
 
-        const blocks = form.blocks.map((b) => {
-            if (b.id !== selectedBlockId) return b;
+        setForm((prev) => {
+            if (!prev) return prev;
 
-            const newItem =
-                newItemType === "TEXT"
-                    ? {
-                        id: Date.now(),
-                        itemType: "TEXT",
-                        content: "",
-                    }
-                    : {
-                        id: Date.now(),
-                        itemType: newItemType,
-                        mediaUrl: "",
-                    };
+            const blocks = (prev.blocks ?? []).map((b) => {
+                if (b.id !== selectedBlockId) return b;
 
-            return {
-                ...b,
-                items: recalcItemOrder([...(b.items || []), newItem]),
-            };
+                const newItem =
+                    newItemType === "TEXT"
+                        ? { id: Date.now(), itemType: "TEXT", content: "" }
+                        : newItemType === "IMAGE"
+                            ? {
+                                id: Date.now(),
+                                itemType: "IMAGE",
+                                mediaUrl: "",
+                                previewUrl: "",
+                                file: null,
+                                uploading: false,
+                            }
+                            : { id: Date.now(), itemType: "VIDEO", mediaUrl: "" };
+
+                return { ...b, items: recalcItemOrder([...(b.items ?? []), newItem]) };
+            });
+
+            return { ...prev, blocks: recalcBlockOrder(blocks) };
         });
 
-        setForm({ ...form, blocks: recalcBlockOrder(blocks) });
         setNewItemType("");
         setSelectedBlockId(null);
         setAddItemDialog(false);
     };
 
-    const updateItem = (blockId, itemId, field, value) => {
-        if (!form) return;
+    /* ================= IMAGE UPLOAD ================= */
 
-        const blocks = form.blocks.map((b) =>
-            b.id !== blockId
-                ? b
-                : {
-                    ...b,
-                    items: (b.items || []).map((it) =>
-                        it.id !== itemId ? it : { ...it, [field]: value }
-                    ),
-                }
-        );
+    const onSelectImageFile = (blockId, itemId, file) => {
+        if (!file) return;
 
-        setForm({ ...form, blocks });
+        const allowed = ["image/png", "image/jpeg"];
+        if (!allowed.includes(file.type)) {
+            setError("Можно загрузить только PNG или JPEG");
+            return;
+        }
+
+        setError("");
+
+        const localPreview = URL.createObjectURL(file);
+        patchItem(blockId, itemId, {
+            file,
+            previewUrl: localPreview,
+            mediaUrl: "", // objectKey сбросим
+        });
     };
 
-    const deleteItem = (blockId, itemId) => {
-        if (!form) return;
+    const uploadImageForItem = async (blockId, itemId) => {
+        setError("");
 
-        const blocks = form.blocks.map((b) =>
-            b.id !== blockId
-                ? b
-                : {
-                    ...b,
-                    items: recalcItemOrder(
-                        (b.items || []).filter((it) => it.id !== itemId)
-                    ),
-                }
-        );
+        // достаем item из актуального state
+        const block = form?.blocks?.find((b) => b.id === blockId);
+        const item = block?.items?.find((it) => it.id === itemId);
 
-        setForm({ ...form, blocks: recalcBlockOrder(blocks) });
+        if (!item?.file) {
+            setError("Сначала выберите файл");
+            return;
+        }
+
+        patchItem(blockId, itemId, { uploading: true });
+
+        try {
+            const data = await uploadImage(item.file); // {objectKey,url}
+
+            patchItem(blockId, itemId, {
+                mediaUrl: data.objectKey, // ✅ objectKey
+                previewUrl: buildImagePreviewUrl(data.url),
+                file: null,
+            });
+        } catch (e) {
+            console.error(e);
+            setError("Ошибка загрузки картинки");
+        } finally {
+            patchItem(blockId, itemId, { uploading: false });
+        }
     };
 
     /* ================= SAVE ================= */
 
     const buildPayload = () => ({
-        ...form,
-        blocks: (form.blocks || []).map((b, blockIndex) => ({
-            ...b,
-            orderIndex: blockIndex + 1,
-            items: (b.items || []).map((it, itemIndex) => ({
-                ...it,
-                orderIndex: itemIndex + 1,
-            })),
+        id: form.id,
+
+        // ✅ META обязательно отправляем явно
+        ageGroup: form.ageGroup,
+        level: form.level,
+        status: form.status,
+        category: form.category,
+        lang: form.lang, // ✅ ВОТ ЭТОГО НЕ ХВАТАЛО / ЯВНО ОТПРАВЛЯЕМ
+
+        title: form.title,
+        description: form.description,
+        orderIndex: form.orderIndex,
+
+        blocks: (form.blocks ?? []).map((b, bIndex) => ({
+            id: b.id,
+            type: b.type,
+            orderIndex: bIndex + 1,
+
+            items: (b.items ?? []).map((it, iIndex) => {
+                if (it.itemType === "IMAGE") {
+                    return {
+                        id: it.id,
+                        itemType: it.itemType,
+                        orderIndex: iIndex + 1,
+                        mediaUrl: extractObjectKey(it.mediaUrl),
+                    };
+                }
+
+                if (it.itemType === "TEXT") {
+                    return {
+                        id: it.id,
+                        itemType: it.itemType,
+                        orderIndex: iIndex + 1,
+                        content: it.content,
+                    };
+                }
+
+                // VIDEO
+                return {
+                    id: it.id,
+                    itemType: it.itemType,
+                    orderIndex: iIndex + 1,
+                    mediaUrl: it.mediaUrl,
+                };
+            }),
         })),
     });
 
+
     const handleSave = async () => {
+        setError("");
+
+        // обязательные поля
+        if (
+            !form.title ||
+            !form.description ||
+            !form.level ||
+            !form.status ||
+            !form.category ||
+            !form.ageGroup ||
+            !form.lang
+        ) {
+            setError("Заполните все обязательные поля");
+            return;
+        }
+
+        // нельзя сохранить если IMAGE без objectKey
+        for (const block of form.blocks ?? []) {
+            for (const item of block.items ?? []) {
+                if (item.itemType === "IMAGE") {
+                    const objectKey = extractObjectKey(item.mediaUrl);
+                    if (!objectKey) {
+                        setError("Загрузите все картинки перед сохранением");
+                        return;
+                    }
+                }
+            }
+        }
+
         try {
             await updateLesson(id, buildPayload());
             setIsEditing(false);
@@ -262,6 +372,8 @@ export default function LessonDetail() {
             setError("Ошибка сохранения");
         }
     };
+
+    /* ================= RENDER ================= */
 
     if (loading) return <CircularProgress />;
     if (error) return <Alert severity="error">{error}</Alert>;
@@ -285,6 +397,7 @@ export default function LessonDetail() {
             {/* TITLE / DESCRIPTION */}
             <Stack spacing={2} sx={{ maxWidth: 600, mt: 3 }}>
                 <TextField
+                    required
                     label="Название"
                     placeholder="Например: Терпение (Сабр)"
                     value={form.title || ""}
@@ -293,60 +406,96 @@ export default function LessonDetail() {
                 />
 
                 <TextField
+                    required
                     label="Описание"
                     placeholder="Коротко опишите цель урока"
                     multiline
                     minRows={3}
                     value={form.description || ""}
                     disabled={!isEditing}
-                    onChange={(e) =>
-                        setForm({ ...form, description: e.target.value })
-                    }
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
                 />
             </Stack>
 
-            {/* META */}
+            {/* ✅ META (обязательные поля) */}
             <Stack spacing={2} sx={{ maxWidth: 400, mt: 4 }}>
-                {[
-                    ["level", "Уровень", levels],
-                    ["status", "Статус", statuses],
-                    ["category", "Категория", categories],
-                ].map(([key, label, options]) => (
-                    <FormControl key={key} fullWidth>
-                        <Typography fontWeight="bold">{label}</Typography>
-                        {isEditing ? (
-                            <Select
-                                value={form[key] || ""}
-                                displayEmpty
-                                onChange={(e) =>
-                                    setForm({ ...form, [key]: e.target.value })
-                                }
-                            >
-                                <MenuItem value="">
-                                    <em>Выберите</em>
+                {/* LEVEL */}
+                <FormControl fullWidth required>
+                    <Typography fontWeight="bold">Уровень *</Typography>
+                    {isEditing ? (
+                        <Select
+                            value={form.level || ""}
+                            displayEmpty
+                            onChange={(e) => setForm({ ...form, level: e.target.value })}
+                        >
+                            <MenuItem value="">
+                                <em>Выберите</em>
+                            </MenuItem>
+                            {levels.map((o) => (
+                                <MenuItem key={o.code} value={o.code}>
+                                    {o.label}
                                 </MenuItem>
-                                {options.map((o) => (
-                                    <MenuItem key={o.code} value={o.code}>
-                                        {o.label}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        ) : (
-                            <Typography>{form[key]}</Typography>
-                        )}
-                    </FormControl>
-                ))}
+                            ))}
+                        </Select>
+                    ) : (
+                        <Typography>{form.level}</Typography>
+                    )}
+                </FormControl>
+
+                {/* STATUS */}
+                <FormControl fullWidth required>
+                    <Typography fontWeight="bold">Статус *</Typography>
+                    {isEditing ? (
+                        <Select
+                            value={form.status || ""}
+                            displayEmpty
+                            onChange={(e) => setForm({ ...form, status: e.target.value })}
+                        >
+                            <MenuItem value="">
+                                <em>Выберите</em>
+                            </MenuItem>
+                            {statuses.map((o) => (
+                                <MenuItem key={o.code} value={o.code}>
+                                    {o.label}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    ) : (
+                        <Typography>{form.status}</Typography>
+                    )}
+                </FormControl>
+
+                {/* CATEGORY */}
+                <FormControl fullWidth required>
+                    <Typography fontWeight="bold">Категория *</Typography>
+                    {isEditing ? (
+                        <Select
+                            value={form.category || ""}
+                            displayEmpty
+                            onChange={(e) => setForm({ ...form, category: e.target.value })}
+                        >
+                            <MenuItem value="">
+                                <em>Выберите</em>
+                            </MenuItem>
+                            {categories.map((o) => (
+                                <MenuItem key={o.code} value={o.code}>
+                                    {o.label}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    ) : (
+                        <Typography>{form.category}</Typography>
+                    )}
+                </FormControl>
 
                 {/* AGE GROUP */}
-                <FormControl fullWidth>
-                    <Typography fontWeight="bold">Возраст</Typography>
+                <FormControl fullWidth required>
+                    <Typography fontWeight="bold">Возраст *</Typography>
                     {isEditing ? (
                         <Select
                             value={form.ageGroup || ""}
                             displayEmpty
-                            onChange={(e) =>
-                                setForm({ ...form, ageGroup: e.target.value })
-                            }
+                            onChange={(e) => setForm({ ...form, ageGroup: e.target.value })}
                         >
                             <MenuItem value="">
                                 <em>Выберите</em>
@@ -363,15 +512,13 @@ export default function LessonDetail() {
                 </FormControl>
 
                 {/* LANGUAGE */}
-                <FormControl fullWidth>
-                    <Typography fontWeight="bold">Язык</Typography>
+                <FormControl fullWidth required>
+                    <Typography fontWeight="bold">Язык *</Typography>
                     {isEditing ? (
                         <Select
                             value={form.lang || ""}
                             displayEmpty
-                            onChange={(e) =>
-                                setForm({ ...form, lang: e.target.value })
-                            }
+                            onChange={(e) => setForm({ ...form, lang: e.target.value })}
                         >
                             <MenuItem value="">
                                 <em>Выберите</em>
@@ -408,57 +555,146 @@ export default function LessonDetail() {
                                 <IconButton onClick={() => moveBlock(idx, idx + 1)}>
                                     <ArrowDownwardIcon />
                                 </IconButton>
-                                <IconButton
-                                    color="error"
-                                    onClick={() => deleteBlock(block.id)}
-                                >
+                                <IconButton color="error" onClick={() => deleteBlock(block.id)}>
                                     <DeleteIcon />
                                 </IconButton>
                             </Box>
                         )}
                     </Box>
 
-                    {/* ITEMS */}
                     {(block.items || []).map((item, itemIdx) => {
-                        const value =
-                            item.itemType === "TEXT"
-                                ? item.content || ""
-                                : item.mediaUrl || "";
+                        // TEXT
+                        if (item.itemType === "TEXT") {
+                            return (
+                                <TextField
+                                    key={item.id}
+                                    fullWidth
+                                    multiline
+                                    minRows={2}
+                                    sx={{ mt: 1 }}
+                                    disabled={!isEditing}
+                                    value={item.content || ""}
+                                    placeholder="Введите текст…"
+                                    helperText={`orderIndex: ${item.orderIndex ?? itemIdx + 1}`}
+                                    onChange={(e) =>
+                                        patchItem(block.id, item.id, { content: e.target.value })
+                                    }
+                                    InputProps={{
+                                        endAdornment: isEditing && (
+                                            <InputAdornment position="end">
+                                                <IconButton
+                                                    color="error"
+                                                    onClick={() => deleteItem(block.id, item.id)}
+                                                >
+                                                    <DeleteIcon />
+                                                </IconButton>
+                                            </InputAdornment>
+                                        ),
+                                    }}
+                                />
+                            );
+                        }
 
-                        const placeholder = getItemPlaceholder(item.itemType);
-                        const example = getItemExample(item.itemType);
+                        // IMAGE
+                        if (item.itemType === "IMAGE") {
+                            const preview =
+                                item.previewUrl || (isHttpUrl(item.mediaUrl) ? item.mediaUrl : "");
 
+                            return (
+                                <Box key={item.id} sx={{ mt: 2 }}>
+                                    <Typography fontWeight="bold" sx={{ mb: 1 }}>
+                                        IMAGE (orderIndex: {item.orderIndex ?? itemIdx + 1})
+                                    </Typography>
+
+                                    {preview && (
+                                        <Box sx={{ mb: 1 }}>
+                                            <img
+                                                src={preview}
+                                                alt="preview"
+                                                style={{
+                                                    width: 220,
+                                                    height: "auto",
+                                                    borderRadius: 8,
+                                                    border: "1px solid rgba(0,0,0,0.12)",
+                                                }}
+                                            />
+                                        </Box>
+                                    )}
+
+                                    {isEditing ? (
+                                        <Stack direction="row" spacing={2} alignItems="center">
+                                            <Button variant="outlined" component="label">
+                                                Выбрать файл (PNG/JPEG)
+                                                <input
+                                                    hidden
+                                                    type="file"
+                                                    accept="image/png,image/jpeg"
+                                                    onChange={(e) =>
+                                                        onSelectImageFile(
+                                                            block.id,
+                                                            item.id,
+                                                            e.target.files?.[0]
+                                                        )
+                                                    }
+                                                />
+                                            </Button>
+
+                                            <Button
+                                                variant="contained"
+                                                startIcon={<UploadIcon />}
+                                                disabled={!item.file || item.uploading}
+                                                onClick={() => uploadImageForItem(block.id, item.id)}
+                                            >
+                                                {item.uploading ? "Загрузка..." : "Загрузить"}
+                                            </Button>
+
+                                            <IconButton
+                                                color="error"
+                                                onClick={() => deleteItem(block.id, item.id)}
+                                            >
+                                                <DeleteIcon />
+                                            </IconButton>
+                                        </Stack>
+                                    ) : (
+                                        item.mediaUrl && (
+                                            <Box sx={{ mt: 1 }}>
+                                                <a href={item.mediaUrl} target="_blank" rel="noreferrer">
+                                                    Открыть изображение
+                                                </a>
+                                            </Box>
+                                        )
+                                    )}
+
+                                    {item.mediaUrl && (
+                                        <Typography variant="body2" sx={{ mt: 1 }}>
+                                            objectKey: <b>{extractObjectKey(item.mediaUrl)}</b>
+                                        </Typography>
+                                    )}
+                                </Box>
+                            );
+                        }
+
+                        // VIDEO
                         return (
                             <TextField
                                 key={item.id}
                                 fullWidth
-                                multiline={item.itemType === "TEXT"}
-                                minRows={item.itemType === "TEXT" ? 2 : undefined}
                                 sx={{ mt: 1 }}
                                 disabled={!isEditing}
-                                value={value}
-                                placeholder={placeholder}
+                                value={item.mediaUrl || ""}
+                                placeholder="Вставьте ссылку на видео…"
+                                helperText={`orderIndex: ${
+                                    item.orderIndex ?? itemIdx + 1
+                                } • Пример: https://youtube.com/watch?v=xxxx`}
                                 onChange={(e) =>
-                                    updateItem(
-                                        block.id,
-                                        item.id,
-                                        item.itemType === "TEXT" ? "content" : "mediaUrl",
-                                        e.target.value
-                                    )
-                                }
-                                helperText={
-                                    example
-                                        ? `orderIndex: ${item.orderIndex ?? itemIdx + 1} • ${example}`
-                                        : `orderIndex: ${item.orderIndex ?? itemIdx + 1}`
+                                    patchItem(block.id, item.id, { mediaUrl: e.target.value })
                                 }
                                 InputProps={{
                                     endAdornment: isEditing && (
                                         <InputAdornment position="end">
                                             <IconButton
                                                 color="error"
-                                                onClick={() =>
-                                                    deleteItem(block.id, item.id)
-                                                }
+                                                onClick={() => deleteItem(block.id, item.id)}
                                             >
                                                 <DeleteIcon />
                                             </IconButton>
@@ -509,7 +745,6 @@ export default function LessonDetail() {
                             <MenuItem value="">
                                 <em>Выберите тип</em>
                             </MenuItem>
-
                             {blockTypes.map((t) => (
                                 <MenuItem key={t.code} value={t.code}>
                                     {t.label}
@@ -519,7 +754,11 @@ export default function LessonDetail() {
                     </FormControl>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={addBlock} disabled={!newBlockType} variant="contained">
+                    <Button
+                        onClick={addBlock}
+                        disabled={!newBlockType}
+                        variant="contained"
+                    >
                         Добавить
                     </Button>
                 </DialogActions>

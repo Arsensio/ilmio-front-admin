@@ -18,20 +18,23 @@ import {
     DialogActions,
     Stack,
     InputAdornment,
+    CircularProgress,
 } from "@mui/material";
 
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
+import UploadIcon from "@mui/icons-material/Upload";
 
 import { createLesson, getFilterData } from "@/api/lessons";
+import { uploadImage, buildImagePreviewUrl } from "@/api/images"; // ✅
 
 export default function LessonCreate() {
     const navigate = useNavigate();
 
     const [form, setForm] = useState({
-        ageGroup: "", // ✅ code
+        ageGroup: "",
         level: "",
         status: "",
         category: "",
@@ -60,16 +63,16 @@ export default function LessonCreate() {
 
     const getItemPlaceholder = (itemType) => {
         if (itemType === "TEXT") return "Введите текст…";
-        if (itemType === "IMAGE") return "Вставьте ссылку на картинку…";
         if (itemType === "VIDEO") return "Вставьте ссылку на видео…";
         return "";
     };
 
     const getItemExample = (itemType) => {
-        if (itemType === "IMAGE") return "Пример: https://example.com/image.png";
         if (itemType === "VIDEO") return "Пример: https://youtube.com/watch?v=xxxx";
         return "";
     };
+
+    /* ================= LOAD FILTER DATA ================= */
 
     useEffect(() => {
         const load = async () => {
@@ -90,106 +93,187 @@ export default function LessonCreate() {
         load();
     }, []);
 
-    /* ============ ORDER HELPERS ============ */
+    /* ================= ORDER HELPERS ================= */
 
     const recalcItemOrder = (items) =>
-        items.map((it, i) => ({ ...it, orderIndex: i + 1 }));
+        (items ?? []).map((it, i) => ({ ...it, orderIndex: i + 1 }));
 
     const recalcBlockOrder = (blocks) =>
-        blocks.map((b, i) => ({
+        (blocks ?? []).map((b, i) => ({
             ...b,
             orderIndex: i + 1,
-            items: Array.isArray(b.items) ? recalcItemOrder(b.items) : [],
+            items: recalcItemOrder(b.items ?? []),
         }));
 
-    /* ============ BLOCKS ============ */
+    /* ================= ITEM / BLOCK UPDATE HELPERS ================= */
+
+    // ✅ ВАЖНО: только functional setForm(prev => ...)
+    const updateItem = (blockId, itemId, patch) => {
+        setForm((prev) => ({
+            ...prev,
+            blocks: (prev.blocks ?? []).map((b) =>
+                b.id !== blockId
+                    ? b
+                    : {
+                        ...b,
+                        items: (b.items ?? []).map((it) =>
+                            it.id !== itemId ? it : { ...it, ...patch }
+                        ),
+                    }
+            ),
+        }));
+    };
+
+    const deleteItem = (blockId, itemId) => {
+        setForm((prev) => {
+            const blocks = (prev.blocks ?? []).map((b) => {
+                if (b.id !== blockId) return b;
+                const items = (b.items ?? []).filter((it) => it.id !== itemId);
+                return { ...b, items: recalcItemOrder(items) };
+            });
+
+            return { ...prev, blocks: recalcBlockOrder(blocks) };
+        });
+    };
+
+    /* ================= BLOCK ACTIONS ================= */
 
     const moveBlock = (from, to) => {
-        if (to < 0 || to >= form.blocks.length) return;
+        setForm((prev) => {
+            if (to < 0 || to >= (prev.blocks ?? []).length) return prev;
 
-        const blocks = [...form.blocks];
-        const [moved] = blocks.splice(from, 1);
-        blocks.splice(to, 0, moved);
+            const blocks = [...(prev.blocks ?? [])];
+            const [moved] = blocks.splice(from, 1);
+            blocks.splice(to, 0, moved);
 
-        setForm({ ...form, blocks: recalcBlockOrder(blocks) });
+            return { ...prev, blocks: recalcBlockOrder(blocks) };
+        });
     };
 
     const deleteBlock = (blockId) => {
-        const blocks = form.blocks.filter((b) => b.id !== blockId);
-        setForm({ ...form, blocks: recalcBlockOrder(blocks) });
+        setForm((prev) => {
+            const blocks = (prev.blocks ?? []).filter((b) => b.id !== blockId);
+            return { ...prev, blocks: recalcBlockOrder(blocks) };
+        });
     };
 
     const addBlock = () => {
         if (!newBlockType) return;
 
-        const blocks = recalcBlockOrder([
-            ...form.blocks,
-            {
-                id: Date.now(),
-                type: newBlockType,
-                orderIndex: form.blocks.length + 1,
-                items: [],
-            },
-        ]);
+        setForm((prev) => {
+            const blocks = recalcBlockOrder([
+                ...(prev.blocks ?? []),
+                {
+                    id: Date.now(),
+                    type: newBlockType,
+                    items: [],
+                },
+            ]);
+            return { ...prev, blocks };
+        });
 
-        setForm({ ...form, blocks });
         setNewBlockType("");
         setAddBlockDialog(false);
     };
 
+    /* ================= ITEMS ================= */
+
     const addItem = () => {
         if (!selectedBlockId || !newItemType) return;
 
-        const blocks = form.blocks.map((b) => {
-            if (b.id !== selectedBlockId) return b;
+        setForm((prev) => {
+            const blocks = (prev.blocks ?? []).map((b) => {
+                if (b.id !== selectedBlockId) return b;
 
-            const newItem =
-                newItemType === "TEXT"
-                    ? { id: Date.now(), itemType: "TEXT", content: "" }
-                    : { id: Date.now(), itemType: newItemType, mediaUrl: "" };
+                const newItem =
+                    newItemType === "TEXT"
+                        ? {
+                            id: Date.now(),
+                            itemType: "TEXT",
+                            content: "",
+                        }
+                        : newItemType === "IMAGE"
+                            ? {
+                                id: Date.now(),
+                                itemType: "IMAGE",
+                                mediaUrl: "", // ✅ objectKey после upload
+                                previewUrl: "",
+                                file: null,
+                                uploading: false,
+                            }
+                            : {
+                                id: Date.now(),
+                                itemType: "VIDEO",
+                                mediaUrl: "",
+                            };
 
-            return {
-                ...b,
-                items: recalcItemOrder([...(b.items ?? []), newItem]),
-            };
+                return {
+                    ...b,
+                    items: recalcItemOrder([...(b.items ?? []), newItem]),
+                };
+            });
+
+            return { ...prev, blocks: recalcBlockOrder(blocks) };
         });
-
-        setForm({ ...form, blocks: recalcBlockOrder(blocks) });
 
         setNewItemType("");
         setSelectedBlockId(null);
         setAddItemDialog(false);
     };
 
-    const updateItem = (blockId, itemId, field, value) => {
-        const blocks = form.blocks.map((b) =>
-            b.id !== blockId
-                ? b
-                : {
-                    ...b,
-                    items: (b.items ?? []).map((it) =>
-                        it.id !== itemId ? it : { ...it, [field]: value }
-                    ),
-                }
-        );
+    /* ================= IMAGE UPLOAD ================= */
 
-        setForm({ ...form, blocks });
+    const onSelectImageFile = (blockId, itemId, file) => {
+        if (!file) return;
+
+        const allowed = ["image/png", "image/jpeg"];
+        if (!allowed.includes(file.type)) {
+            setError("Можно загрузить только PNG или JPEG");
+            return;
+        }
+
+        setError("");
+
+        const localPreview = URL.createObjectURL(file);
+
+        updateItem(blockId, itemId, {
+            file,
+            previewUrl: localPreview,
+            mediaUrl: "", // objectKey очищаем
+        });
     };
 
-    const deleteItem = (blockId, itemId) => {
-        const blocks = form.blocks.map((b) =>
-            b.id !== blockId
-                ? b
-                : {
-                    ...b,
-                    items: recalcItemOrder((b.items ?? []).filter((it) => it.id !== itemId)),
-                }
-        );
+    const uploadImageForItem = async (blockId, itemId) => {
+        setError("");
 
-        setForm({ ...form, blocks: recalcBlockOrder(blocks) });
+        // ✅ достаем item из актуального state
+        const block = form?.blocks?.find((b) => b.id === blockId);
+        const item = block?.items?.find((it) => it.id === itemId);
+
+        if (!item?.file) {
+            setError("Сначала выберите файл");
+            return;
+        }
+
+        updateItem(blockId, itemId, { uploading: true });
+
+        try {
+            const data = await uploadImage(item.file); // ✅ {objectKey,url}
+
+            updateItem(blockId, itemId, {
+                mediaUrl: data.objectKey, // ✅ objectKey уйдёт в бек
+                previewUrl: buildImagePreviewUrl(data.url), // ✅ абсолютный preview url
+                file: null,
+            });
+        } catch (e) {
+            console.error(e);
+            setError("Ошибка загрузки картинки");
+        } finally {
+            updateItem(blockId, itemId, { uploading: false });
+        }
     };
 
-    /* ============ BUILD PAYLOAD ============ */
+    /* ================= BUILD PAYLOAD ================= */
 
     const buildPayload = () => ({
         ageGroup: form.ageGroup,
@@ -199,6 +283,7 @@ export default function LessonCreate() {
         lang: form.lang,
         title: form.title,
         description: form.description,
+
         blocks: (form.blocks ?? []).map((block, bIndex) => ({
             type: block.type,
             orderIndex: bIndex + 1,
@@ -207,12 +292,12 @@ export default function LessonCreate() {
                 orderIndex: iIndex + 1,
                 ...(item.itemType === "TEXT"
                     ? { content: item.content }
-                    : { mediaUrl: item.mediaUrl }),
+                    : { mediaUrl: item.mediaUrl }), // ✅ IMAGE: objectKey, VIDEO: ссылка
             })),
         })),
     });
 
-    /* ============ SAVE ============ */
+    /* ================= SAVE ================= */
 
     const handleCreate = async () => {
         setError("");
@@ -230,6 +315,16 @@ export default function LessonCreate() {
             return;
         }
 
+        // ✅ IMAGE нельзя сохранить если objectKey пустой
+        for (const block of form.blocks ?? []) {
+            for (const item of block.items ?? []) {
+                if (item.itemType === "IMAGE" && !item.mediaUrl) {
+                    setError("Загрузите все картинки перед сохранением урока");
+                    return;
+                }
+            }
+        }
+
         try {
             await createLesson(buildPayload());
             navigate("/lessons");
@@ -238,6 +333,8 @@ export default function LessonCreate() {
             setError("Ошибка при создании урока");
         }
     };
+
+    /* ================= UI ================= */
 
     return (
         <Box sx={{ p: 3 }}>
@@ -273,7 +370,9 @@ export default function LessonCreate() {
                     multiline
                     minRows={3}
                     value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    onChange={(e) =>
+                        setForm({ ...form, description: e.target.value })
+                    }
                 />
 
                 {/* AGE GROUP */}
@@ -282,7 +381,9 @@ export default function LessonCreate() {
                     <Select
                         value={form.ageGroup}
                         displayEmpty
-                        onChange={(e) => setForm({ ...form, ageGroup: e.target.value })}
+                        onChange={(e) =>
+                            setForm({ ...form, ageGroup: e.target.value })
+                        }
                     >
                         <MenuItem value="">
                             <em>Выберите возраст</em>
@@ -301,7 +402,9 @@ export default function LessonCreate() {
                     <Select
                         value={form.lang}
                         displayEmpty
-                        onChange={(e) => setForm({ ...form, lang: e.target.value })}
+                        onChange={(e) =>
+                            setForm({ ...form, lang: e.target.value })
+                        }
                     >
                         <MenuItem value="">
                             <em>Выберите язык</em>
@@ -324,7 +427,9 @@ export default function LessonCreate() {
                         <Select
                             value={form[key]}
                             displayEmpty
-                            onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                            onChange={(e) =>
+                                setForm({ ...form, [key]: e.target.value })
+                            }
                         >
                             <MenuItem value="">
                                 <em>Выберите</em>
@@ -350,6 +455,7 @@ export default function LessonCreate() {
                         <Typography>
                             {block.type} (orderIndex: {block.orderIndex ?? idx + 1})
                         </Typography>
+
                         <Box>
                             <IconButton onClick={() => moveBlock(idx, idx - 1)}>
                                 <ArrowUpwardIcon />
@@ -357,18 +463,127 @@ export default function LessonCreate() {
                             <IconButton onClick={() => moveBlock(idx, idx + 1)}>
                                 <ArrowDownwardIcon />
                             </IconButton>
-                            <IconButton color="error" onClick={() => deleteBlock(block.id)}>
+                            <IconButton
+                                color="error"
+                                onClick={() => deleteBlock(block.id)}
+                            >
                                 <DeleteIcon />
                             </IconButton>
                         </Box>
                     </Box>
 
                     {(block.items ?? []).map((item, itemIdx) => {
-                        const value =
-                            item.itemType === "TEXT"
-                                ? item.content || ""
-                                : item.mediaUrl || "";
+                        // TEXT
+                        if (item.itemType === "TEXT") {
+                            return (
+                                <TextField
+                                    key={item.id}
+                                    fullWidth
+                                    multiline
+                                    minRows={2}
+                                    sx={{ mt: 1 }}
+                                    value={item.content || ""}
+                                    placeholder="Введите текст…"
+                                    helperText={`orderIndex: ${item.orderIndex ?? itemIdx + 1}`}
+                                    onChange={(e) =>
+                                        updateItem(block.id, item.id, {
+                                            content: e.target.value,
+                                        })
+                                    }
+                                    InputProps={{
+                                        endAdornment: (
+                                            <InputAdornment position="end">
+                                                <IconButton
+                                                    color="error"
+                                                    onClick={() =>
+                                                        deleteItem(block.id, item.id)
+                                                    }
+                                                >
+                                                    <DeleteIcon />
+                                                </IconButton>
+                                            </InputAdornment>
+                                        ),
+                                    }}
+                                />
+                            );
+                        }
 
+                        // IMAGE
+                        if (item.itemType === "IMAGE") {
+                            return (
+                                <Box key={item.id} sx={{ mt: 2 }}>
+                                    <Typography fontWeight="bold" sx={{ mb: 1 }}>
+                                        IMAGE (orderIndex: {item.orderIndex ?? itemIdx + 1})
+                                    </Typography>
+
+                                    {item.previewUrl && (
+                                        <Box sx={{ mb: 1 }}>
+                                            <img
+                                                src={item.previewUrl}
+                                                alt="preview"
+                                                style={{
+                                                    width: 220,
+                                                    height: "auto",
+                                                    borderRadius: 8,
+                                                    border: "1px solid rgba(0,0,0,0.12)",
+                                                }}
+                                            />
+                                        </Box>
+                                    )}
+
+                                    <Stack direction="row" spacing={2} alignItems="center">
+                                        <Button variant="outlined" component="label">
+                                            Выбрать файл (PNG/JPEG)
+                                            <input
+                                                hidden
+                                                type="file"
+                                                accept="image/png,image/jpeg"
+                                                onChange={(e) =>
+                                                    onSelectImageFile(
+                                                        block.id,
+                                                        item.id,
+                                                        e.target.files?.[0]
+                                                    )
+                                                }
+                                            />
+                                        </Button>
+
+                                        <Button
+                                            variant="contained"
+                                            startIcon={<UploadIcon />}
+                                            disabled={!item.file || item.uploading}
+                                            onClick={() =>
+                                                uploadImageForItem(block.id, item.id)
+                                            }
+                                        >
+                                            {item.uploading ? (
+                                                <>
+                                                    <CircularProgress size={16} sx={{ mr: 1 }} />
+                                                    Загрузка...
+                                                </>
+                                            ) : (
+                                                "Загрузить"
+                                            )}
+                                        </Button>
+
+                                        <IconButton
+                                            color="error"
+                                            onClick={() => deleteItem(block.id, item.id)}
+                                        >
+                                            <DeleteIcon />
+                                        </IconButton>
+                                    </Stack>
+
+                                    {item.mediaUrl && (
+                                        <Typography variant="body2" sx={{ mt: 1 }}>
+                                            ✅ objectKey: <b>{item.mediaUrl}</b>
+                                        </Typography>
+                                    )}
+                                </Box>
+                            );
+                        }
+
+                        // VIDEO
                         const placeholder = getItemPlaceholder(item.itemType);
                         const example = getItemExample(item.itemType);
 
@@ -376,18 +591,11 @@ export default function LessonCreate() {
                             <TextField
                                 key={item.id}
                                 fullWidth
-                                multiline={item.itemType === "TEXT"}
-                                minRows={item.itemType === "TEXT" ? 2 : undefined}
                                 sx={{ mt: 1 }}
-                                value={value}
+                                value={item.mediaUrl || ""}
                                 placeholder={placeholder}
                                 onChange={(e) =>
-                                    updateItem(
-                                        block.id,
-                                        item.id,
-                                        item.itemType === "TEXT" ? "content" : "mediaUrl",
-                                        e.target.value
-                                    )
+                                    updateItem(block.id, item.id, { mediaUrl: e.target.value })
                                 }
                                 helperText={
                                     example
@@ -424,7 +632,11 @@ export default function LessonCreate() {
                 </Paper>
             ))}
 
-            <Button startIcon={<AddIcon />} sx={{ mt: 3 }} onClick={() => setAddBlockDialog(true)}>
+            <Button
+                startIcon={<AddIcon />}
+                sx={{ mt: 3 }}
+                onClick={() => setAddBlockDialog(true)}
+            >
                 Добавить блок
             </Button>
 
@@ -449,7 +661,11 @@ export default function LessonCreate() {
                     </Select>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={addBlock} disabled={!newBlockType} variant="contained">
+                    <Button
+                        onClick={addBlock}
+                        disabled={!newBlockType}
+                        variant="contained"
+                    >
                         Добавить
                     </Button>
                 </DialogActions>
@@ -474,7 +690,11 @@ export default function LessonCreate() {
                     </Select>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={addItem} disabled={!newItemType} variant="contained">
+                    <Button
+                        onClick={addItem}
+                        disabled={!newItemType}
+                        variant="contained"
+                    >
                         Добавить
                     </Button>
                 </DialogActions>
