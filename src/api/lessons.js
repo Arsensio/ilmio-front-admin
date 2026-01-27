@@ -29,13 +29,22 @@ const normalizeDict = (data) => {
  * Словари для UI
  */
 export const getFilterData = async () => {
-    const [levels, statuses, categories, langs, blockTypes, ageGroups] = await Promise.all([
+    const [
+        levels,
+        statuses,
+        categories,
+        langs,
+        blockTypes,
+        ageGroups,
+        questionTypes,
+    ] = await Promise.all([
         getDictionary("LEVEL"),
         getDictionary("STATUS"),
         getDictionary("CATEGORY"),
         getDictionary("LANGUAGE"),
         getDictionary("BLOCK_TYPE"),
         getDictionary("AGE_GROUP"),
+        getDictionary("QUESTION_TYPE"), // ✅ НОВОЕ
     ]);
 
     return {
@@ -45,7 +54,15 @@ export const getFilterData = async () => {
         langs: normalizeDict(langs.data),
         blockTypes: normalizeDict(blockTypes.data),
         ageGroups: normalizeDict(ageGroups.data),
+        questionTypes: normalizeDict(questionTypes.data), // ✅
     };
 };
 
+
 export const getBlockTypes = () => getDictionary("BLOCK_TYPE");
+
+
+export const updateLessonOrder = (lessonId, orderIndex) =>
+    client.put(`/admin/lesson/${lessonId}/index`, {
+        orderIndex,
+    });

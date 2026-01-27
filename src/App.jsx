@@ -11,12 +11,13 @@ import LoginForm from "./components/LoginForm";
 import Register from "./components/Register";
 import Dashboard from "./components/Dashboard";
 import Lessons from "./components/pages/Lessons";
-import LessonDetail from "./components/pages/LessonDetail";
+import LessonDetail from "./pages/LessonDetail";
+import LessonEdit from "./pages/LessonEdit";
 import LessonCreate from "./components/pages/LessonCreate";
+import TestLessons from "./components/pages/TestLessons";
 import Logout from "./components/Logout";
 import Layout from "./components/Layout";
-
-/* ================= WRAPPER ================= */
+import TestEditPage from "./components/pages/TestEditPage";
 
 function AppWrapper() {
     return (
@@ -25,8 +26,6 @@ function AppWrapper() {
         </BrowserRouter>
     );
 }
-
-/* ================= APP ================= */
 
 function App() {
     const [token, setToken] = useState(() => localStorage.getItem("token"));
@@ -40,8 +39,9 @@ function App() {
 
     return (
         <Routes>
-            {/* 👉 если просто / — сразу на login */}
             <Route path="/" element={<Navigate to="/login" replace />} />
+
+            <Route path="/tests/edit/:lessonId" element={<TestEditPage />} />
 
             {/* ===== AUTH ===== */}
             <Route
@@ -57,19 +57,10 @@ function App() {
 
             <Route
                 path="/register"
-                element={
-                    !token ? (
-                        <Register />
-                    ) : (
-                        <Navigate to="/dashboard" replace />
-                    )
-                }
+                element={!token ? <Register /> : <Navigate to="/dashboard" />}
             />
 
-            <Route
-                path="/logout"
-                element={<Logout onLogout={handleLogout} />}
-            />
+            <Route path="/logout" element={<Logout onLogout={handleLogout} />} />
 
             {/* ===== PROTECTED ===== */}
             <Route
@@ -86,10 +77,16 @@ function App() {
 
                 <Route path="lessons" element={<Lessons />} />
                 <Route path="lessons/create" element={<LessonCreate />} />
+
+                {/* 👇 ПРОСМОТР */}
                 <Route path="lessons/:id" element={<LessonDetail />} />
+
+                {/* 👇 РЕДАКТОР */}
+                <Route path="lessons/:id/edit" element={<LessonEdit />} />
+
+                <Route path="test-lessons" element={<TestLessons />} />
             </Route>
 
-            {/* ===== FALLBACK ===== */}
             <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
     );

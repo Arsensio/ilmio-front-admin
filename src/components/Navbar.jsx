@@ -76,7 +76,7 @@ export default function Navbar({ onLogout }) {
                             <ListItemText primary="Уроки" />
                         </ListItemButton>
 
-                        <ListItemButton onClick={() => handleNavigate("/tests")}>
+                        <ListItemButton onClick={() => handleNavigate("/test-lessons")}>
                             <ListItemText primary="Тесты" />
                         </ListItemButton>
 
