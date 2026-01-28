@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, CircularProgress, Alert } from "@mui/material";
 
-import LessonForm from "@/components/pages/LessonForm";
-import { createLesson, getFilterData } from "@/api/lessons";
+import LessonForm from "@/components/pages/LessonForm.jsx";
+import { createLesson, getFilterData } from "@/api/lessons.js";
 
 /* ================= EMPTY LESSON ================= */
 

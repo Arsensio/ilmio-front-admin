@@ -13,7 +13,7 @@ import Dashboard from "./components/Dashboard";
 import Lessons from "./components/pages/Lessons";
 import LessonDetail from "./pages/LessonDetail";
 import LessonEdit from "./pages/LessonEdit";
-import LessonCreate from "./components/pages/LessonCreate";
+import LessonCreate from "./pages/LessonCreate.jsx";
 import TestLessons from "./components/pages/TestLessons";
 import Logout from "./components/Logout";
 import Layout from "./components/Layout";
