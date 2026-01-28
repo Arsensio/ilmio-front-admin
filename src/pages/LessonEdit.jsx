@@ -15,6 +15,9 @@ export default function LessonEdit() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
+    const [isDirty, setIsDirty] = useState(false); // 🔥 есть несохранённые изменения
+
+    /* ================= LOAD ================= */
     useEffect(() => {
         const load = async () => {
             try {
@@ -36,10 +39,29 @@ export default function LessonEdit() {
         load();
     }, [id]);
 
+    /* ================= WARN BEFORE LEAVE ================= */
+    useEffect(() => {
+        if (!isDirty) return;
+
+        const beforeUnload = (e) => {
+            e.preventDefault();
+            e.returnValue = "";
+        };
+
+        window.addEventListener("beforeunload", beforeUnload);
+        return () => window.removeEventListener("beforeunload", beforeUnload);
+    }, [isDirty]);
+
+    /* ================= SAVE ================= */
     const handleSave = async (payload) => {
         try {
             await updateLesson(id, payload);
-            navigate(`/lessons/${id}`);
+
+            setIsDirty(false); // ✅ данные сохранены
+
+            navigate(`/lessons/${id}`, {
+                replace: true, // 🔥 нельзя вернуться в edit
+            });
         } catch (e) {
             console.error(e);
             setError("Ошибка сохранения урока");
@@ -65,6 +87,7 @@ export default function LessonEdit() {
             initialData={lesson}
             dictionaries={dicts}
             onSubmit={handleSave}
+            onChange={() => setIsDirty(true)} // 🔥 любое изменение
         />
     );
 }
