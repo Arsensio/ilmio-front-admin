@@ -124,14 +124,6 @@ export default function LoginForm({ onLogin }) {
                         >
                             {loading ? "Вход..." : "Войти"}
                         </Button>
-
-                        <Button
-                            variant="text"
-                            fullWidth
-                            onClick={() => navigate("/register")}
-                        >
-                            Зарегистрироваться
-                        </Button>
                     </Stack>
                 </Box>
             </Paper>

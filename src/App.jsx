@@ -8,7 +8,6 @@ import {
 } from "react-router-dom";
 
 import LoginForm from "./components/LoginForm";
-import Register from "./components/Register";
 import Dashboard from "./components/Dashboard";
 import Lessons from "./components/pages/Lessons";
 import LessonDetail from "./pages/LessonDetail";
@@ -52,11 +51,6 @@ function App() {
                 }
             />
 
-            <Route
-                path="/register"
-                element={!token ? <Register /> : <Navigate to="/dashboard" />}
-            />
-
             <Route path="/logout" element={<Logout onLogout={handleLogout} />} />
 
             {/* ===== PROTECTED ===== */}
@@ -80,7 +74,6 @@ function App() {
 
                 {/* 👇 РЕДАКТОР */}
                 <Route path="lessons/:id/edit" element={<LessonEdit />} />
-
             </Route>
 
             <Route path="*" element={<Navigate to="/login" replace />} />
