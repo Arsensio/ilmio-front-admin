@@ -14,10 +14,8 @@ import Lessons from "./components/pages/Lessons";
 import LessonDetail from "./pages/LessonDetail";
 import LessonEdit from "./pages/LessonEdit";
 import LessonCreate from "./pages/LessonCreate.jsx";
-import TestLessons from "./components/pages/TestLessons";
 import Logout from "./components/Logout";
 import Layout from "./components/Layout";
-import TestEditPage from "./components/pages/TestEditPage";
 
 function AppWrapper() {
     return (
@@ -41,7 +39,6 @@ function App() {
         <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
 
-            <Route path="/tests/edit/:lessonId" element={<TestEditPage />} />
 
             {/* ===== AUTH ===== */}
             <Route
@@ -84,7 +81,6 @@ function App() {
                 {/* 👇 РЕДАКТОР */}
                 <Route path="lessons/:id/edit" element={<LessonEdit />} />
 
-                <Route path="test-lessons" element={<TestLessons />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/login" replace />} />

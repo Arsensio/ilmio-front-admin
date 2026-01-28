@@ -9,7 +9,7 @@ export const verifyOtp = (data) => {
 };
 
 export const login = (data) => {
-    return client.post("/auth/login", data);
+    return client.post("/auth/admin/login", data);
 };
 
 export const logout = () => {
