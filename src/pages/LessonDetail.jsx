@@ -12,11 +12,6 @@ import {
 } from "@mui/material";
 
 import { getLessonById, getDictionary } from "@/api/lessons";
-
-const isHttpUrl = (v) =>
-    typeof v === "string" &&
-    (v.startsWith("http://") || v.startsWith("https://"));
-
 /* ===== BOOTSTRAP-LIKE DISABLED FIELD ===== */
 function MetaField({ label, value }) {
     return (
@@ -176,10 +171,12 @@ export default function LessonDetail() {
                                         variant="outlined"
                                         sx={{ p: 2, borderRadius: 0 }}
                                     >
+                                        {/* QUESTION TEXT */}
                                         <Typography fontWeight="bold">
                                             {q.text}
                                         </Typography>
 
+                                        {/* QUESTION TYPE */}
                                         <Typography
                                             variant="caption"
                                             sx={{
@@ -195,15 +192,27 @@ export default function LessonDetail() {
                                             {questionTypeMap[q.type] ?? q.type}
                                         </Typography>
 
+                                        {/* ✅ QUESTION IMAGE */}
+                                        {q.mediaUrl && (
+                                            <Box mt={1} mb={1}>
+                                                <img
+                                                    src={q.mediaUrl}
+                                                    alt="question"
+                                                    style={{
+                                                        maxWidth: 320,
+                                                        borderRadius: 4,
+                                                        border: "1px solid rgba(0,0,0,0.12)",
+                                                    }}
+                                                />
+                                            </Box>
+                                        )}
+
+                                        {/* ANSWERS */}
                                         <Stack spacing={0.5}>
                                             {(q.items ?? []).map((a, i) => (
                                                 <Typography
                                                     key={i}
-                                                    color={
-                                                        a.isCorrect
-                                                            ? "green"
-                                                            : "text.primary"
-                                                    }
+                                                    color={a.isCorrect ? "green" : "text.primary"}
                                                 >
                                                     {a.key}. {a.value}
                                                 </Typography>
