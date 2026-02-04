@@ -32,10 +32,10 @@ export default function Navbar({ onLogout }) {
 
     return (
         <>
-            {/* Верхняя панель во всю ширину */}
+            {/* Верхняя панель */}
             <AppBar position="fixed" color="primary">
                 <Toolbar>
-                    {/* Бургер слева */}
+                    {/* Бургер */}
                     <IconButton
                         color="inherit"
                         edge="start"
@@ -45,20 +45,26 @@ export default function Navbar({ onLogout }) {
                         <MenuIcon />
                     </IconButton>
 
-                    {/* Заголовок */}
                     <Typography variant="h6" component="div">
                         Админка
                     </Typography>
                 </Toolbar>
             </AppBar>
 
-            {/* Отступ, чтобы контент не заходил под AppBar */}
+            {/* spacer под AppBar */}
             <Toolbar />
 
-            {/* Боковое меню Drawer слева */}
+            {/* Drawer */}
             <Drawer anchor="left" open={open} onClose={toggleDrawer(false)}>
                 <Box
-                    sx={{ width: 250, p: 2, height: "100%", bgcolor: "#fafafa" }}
+                    sx={{
+                        width: 250,
+                        p: 2,
+                        height: "100%",
+                        bgcolor: "#fafafa",
+                        display: "flex",
+                        flexDirection: "column",
+                    }}
                     role="presentation"
                 >
                     <Typography variant="h6" align="center" sx={{ mb: 2 }}>
@@ -68,14 +74,22 @@ export default function Navbar({ onLogout }) {
                     <Divider />
 
                     <List>
+                        {/* Главная */}
                         <ListItemButton onClick={() => handleNavigate("/dashboard")}>
                             <ListItemText primary="Главная" />
                         </ListItemButton>
 
+                        {/* 🔹 ТЕМЫ (новый пункт) */}
+                        <ListItemButton onClick={() => handleNavigate("/topics")}>
+                            <ListItemText primary="Темы" />
+                        </ListItemButton>
+
+                        {/* Уроки */}
                         <ListItemButton onClick={() => handleNavigate("/lessons")}>
                             <ListItemText primary="Уроки" />
                         </ListItemButton>
 
+                        {/* Пользователи */}
                         <ListItemButton onClick={() => handleNavigate("/users")}>
                             <ListItemText primary="Пользователи" />
                         </ListItemButton>
@@ -83,14 +97,17 @@ export default function Navbar({ onLogout }) {
 
                     <Divider sx={{ my: 2 }} />
 
-                    <Button
-                        variant="contained"
-                        color="secondary"
-                        fullWidth
-                        onClick={onLogout}
-                    >
-                        Выйти
-                    </Button>
+                    {/* logout снизу */}
+                    <Box sx={{ mt: "auto" }}>
+                        <Button
+                            variant="contained"
+                            color="secondary"
+                            fullWidth
+                            onClick={onLogout}
+                        >
+                            Выйти
+                        </Button>
+                    </Box>
                 </Box>
             </Drawer>
         </>
