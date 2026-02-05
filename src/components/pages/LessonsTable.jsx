@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -12,15 +12,11 @@ import {
     TableHead,
     TableRow,
     Paper,
-    TextField,
     Pagination,
     TableSortLabel,
 } from "@mui/material";
 
-import {
-    getLessons,
-    updateLessonOrder,
-} from "@/api/lessons";
+import { getLessons } from "@/api/lessons";
 
 export default function LessonsTable({
                                          filters,
@@ -31,17 +27,12 @@ export default function LessonsTable({
                                      }) {
     const navigate = useNavigate();
 
-    /* ===== DATA ===== */
     const [lessons, setLessons] = useState([]);
     const [totalPages, setTotalPages] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
-    /* ===== INLINE EDIT ===== */
-    const [editingId, setEditingId] = useState(null);
-    const [editingValue, setEditingValue] = useState("");
-
-    /* ================= LOAD LESSONS ================= */
+    /* ================= LOAD ================= */
     useEffect(() => {
         const load = async () => {
             try {
@@ -52,14 +43,15 @@ export default function LessonsTable({
                     size: 10,
                 };
 
+                // 🔁 SORT
                 if (sort?.field && sort?.direction) {
                     params.sort = `${sort.field},${sort.direction}`;
                 }
 
-                if (filters.level) params.levels = filters.level;
+                // 🔥 FILTERS
                 if (filters.status) params.statuses = filters.status;
                 if (filters.category) params.categories = filters.category;
-                if (filters.ageGroup) params.ageGroups = filters.ageGroup;
+                if (filters.lang) params.langs = filters.lang; // ✅ ВОТ ЭТОГО НЕ ХВАТАЛО
                 if (filters.title) params.title = filters.title;
 
                 const res = await getLessons(params);
@@ -68,6 +60,7 @@ export default function LessonsTable({
                 setTotalPages(res.data.totalPages ?? 0);
                 setError("");
             } catch (e) {
+                console.error(e);
                 setError("Ошибка загрузки уроков");
             } finally {
                 setLoading(false);
@@ -95,36 +88,6 @@ export default function LessonsTable({
         onPageChange(0);
     };
 
-    /* ================= INLINE EDIT ================= */
-    const startEdit = (lesson) => {
-        setEditingId(lesson.id);
-        setEditingValue(String(lesson.orderIndex ?? ""));
-    };
-
-    const cancelEdit = () => {
-        setEditingId(null);
-        setEditingValue("");
-    };
-
-    const saveEdit = async (lesson) => {
-        const newValue = Number(editingValue);
-        if (Number.isNaN(newValue)) return cancelEdit();
-
-        setLessons((prev) =>
-            prev.map((l) =>
-                l.id === lesson.id ? { ...l, orderIndex: newValue } : l
-            )
-        );
-
-        cancelEdit();
-
-        try {
-            await updateLessonOrder(lesson.id, newValue);
-        } catch {
-            setError("Ошибка сохранения порядка");
-        }
-    };
-
     /* ================= UI ================= */
     if (loading) {
         return (
@@ -146,11 +109,9 @@ export default function LessonsTable({
                         <TableRow>
                             {[
                                 ["id", "ID"],
-                                ["level", "Уровень"],
                                 ["status", "Статус"],
                                 ["category", "Категория"],
-                                ["ageGroup", "Возраст"],
-                                ["orderIndex", "Порядок"],
+                                ["lang", "Язык"],          // ✅ колонка язык
                                 ["title", "Название"],
                             ].map(([field, label]) => (
                                 <TableCell key={field}>
@@ -178,44 +139,13 @@ export default function LessonsTable({
                                 hover
                                 sx={{ cursor: "pointer" }}
                                 onClick={() =>
-                                    editingId === null &&
                                     navigate(`/lessons/${lesson.id}`)
                                 }
                             >
                                 <TableCell>{lesson.id}</TableCell>
-                                <TableCell>{lesson.level}</TableCell>
                                 <TableCell>{lesson.status}</TableCell>
                                 <TableCell>{lesson.category}</TableCell>
-                                <TableCell>{lesson.ageGroup}</TableCell>
-
-                                {/* ORDER INDEX */}
-                                <TableCell
-                                    onClick={(e) => e.stopPropagation()}
-                                    onDoubleClick={() => startEdit(lesson)}
-                                >
-                                    {editingId === lesson.id ? (
-                                        <TextField
-                                            size="small"
-                                            type="number"
-                                            autoFocus
-                                            value={editingValue}
-                                            onChange={(e) =>
-                                                setEditingValue(e.target.value)
-                                            }
-                                            onBlur={() => saveEdit(lesson)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter")
-                                                    saveEdit(lesson);
-                                                if (e.key === "Escape")
-                                                    cancelEdit();
-                                            }}
-                                            sx={{ width: 70 }}
-                                        />
-                                    ) : (
-                                        lesson.orderIndex
-                                    )}
-                                </TableCell>
-
+                                <TableCell>{lesson.lang}</TableCell> {/* ✅ */}
                                 <TableCell>{lesson.title}</TableCell>
                                 <TableCell>{lesson.description}</TableCell>
                             </TableRow>
@@ -223,7 +153,7 @@ export default function LessonsTable({
 
                         {lessons.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={8} align="center">
+                                <TableCell colSpan={6} align="center">
                                     Нет данных
                                 </TableCell>
                             </TableRow>

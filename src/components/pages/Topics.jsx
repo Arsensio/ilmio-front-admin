@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom"; // ✅ ДОБАВИТЬ
 import {
     Box,
     Typography,
@@ -15,6 +16,8 @@ import TopicsFilters from "./TopicsFilters";
 import TopicsTable from "./TopicsTable";
 
 export default function Topics() {
+    const navigate = useNavigate(); // ✅ ДОБАВИТЬ
+
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(true);
 
@@ -30,8 +33,6 @@ export default function Topics() {
         langs: [],
         title: "",
     });
-
-
 
     const [page, setPage] = useState(0);
 
@@ -67,7 +68,11 @@ export default function Topics() {
             <Box display="flex" justifyContent="space-between" mb={3}>
                 <Typography variant="h4">Темы</Typography>
 
-                <Button variant="contained" startIcon={<AddIcon />}>
+                <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={() => navigate("/topics/create")}
+                >
                     Добавить тему
                 </Button>
             </Box>
@@ -93,8 +98,7 @@ export default function Topics() {
                         });
                         setPage(0);
                     }}
-
-                 />
+                />
             </Paper>
 
             {/* TABLE */}

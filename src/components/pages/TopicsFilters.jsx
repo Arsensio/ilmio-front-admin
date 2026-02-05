@@ -10,7 +10,6 @@ import {
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 
 export default function TopicsFilters({
-                                          levels = [],
                                           statuses = [],
                                           ageGroups = [],
                                           langs = [],
@@ -31,23 +30,6 @@ export default function TopicsFilters({
             direction={{ xs: "column", md: "row" }}
             alignItems={{ xs: "stretch", md: "flex-end" }}
         >
-            {/* LEVEL */}
-            <FormControl fullWidth>
-                <InputLabel>Уровень</InputLabel>
-                <Select
-                    multiple
-                    value={value.levels}
-                    onChange={handleMultiChange("levels")}
-                    renderValue={(selected) => selected.join(", ")}
-                >
-                    {levels.map((o) => (
-                        <MenuItem key={o.code} value={o.code}>
-                            {o.label}
-                        </MenuItem>
-                    ))}
-                </Select>
-            </FormControl>
-
             {/* STATUS */}
             <FormControl fullWidth>
                 <InputLabel>Статус</InputLabel>
@@ -114,7 +96,7 @@ export default function TopicsFilters({
                 startIcon={<RestartAltIcon />}
                 onClick={onReset}
                 sx={{
-                    height: 56,              // 🔥 КЛЮЧ
+                    height: 56,
                     minWidth: 120,
                     whiteSpace: "nowrap",
                 }}

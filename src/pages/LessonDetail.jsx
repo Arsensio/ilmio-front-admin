@@ -12,6 +12,7 @@ import {
 } from "@mui/material";
 
 import { getLessonById, getDictionary } from "@/api/lessons";
+
 /* ===== BOOTSTRAP-LIKE DISABLED FIELD ===== */
 function MetaField({ label, value }) {
     return (
@@ -20,8 +21,8 @@ function MetaField({ label, value }) {
             sx={{
                 px: 2,
                 py: 1,
-                borderRadius: 0,           // ⬛ квадратный
-                bgcolor: "#f5f5f5",        // как disabled
+                borderRadius: 0,
+                bgcolor: "#f5f5f5",
                 color: "text.secondary",
                 fontSize: 14,
             }}
@@ -75,7 +76,12 @@ export default function LessonDetail() {
     if (error) return <Alert severity="error">{error}</Alert>;
     if (!lesson) return null;
 
-    /* ================= RENDER ================= */
+    /* ===== темы урока ===== */
+    const lessonThemesLabel =
+        lesson.lessonThemes && lesson.lessonThemes.length > 0
+            ? lesson.lessonThemes.map((t) => t.title).join(", ")
+            : "—";
+
     return (
         <Box sx={{ p: 3 }}>
             {/* HEADER */}
@@ -93,13 +99,12 @@ export default function LessonDetail() {
             <Typography variant="h4">{lesson.title}</Typography>
             <Typography sx={{ mt: 1 }}>{lesson.description}</Typography>
 
-            {/* ===== META (BOOTSTRAP DISABLED STYLE) ===== */}
-            <Stack spacing={1.5} mt={3} sx={{ maxWidth: 320 }}>
-                <MetaField label="LEVEL" value={lesson.level} />
-                <MetaField label="AGE" value={lesson.ageGroup} />
-                <MetaField label="LANG" value={lesson.lang} />
-                <MetaField label="STATUS" value={lesson.status} />
-                <MetaField label="CATEGORY" value={lesson.category} />
+            {/* ===== META ===== */}
+            <Stack spacing={1.5} mt={3} sx={{ maxWidth: 420 }}>
+                <MetaField label="ТЕМЫ" value={lessonThemesLabel} />
+                <MetaField label="ЯЗЫК" value={lesson.lang} />
+                <MetaField label="СТАТУС" value={lesson.status} />
+                <MetaField label="КАТЕГОРИЯ" value={lesson.category} />
             </Stack>
 
             <Divider sx={{ my: 4 }} />
@@ -171,12 +176,10 @@ export default function LessonDetail() {
                                         variant="outlined"
                                         sx={{ p: 2, borderRadius: 0 }}
                                     >
-                                        {/* QUESTION TEXT */}
                                         <Typography fontWeight="bold">
                                             {q.text}
                                         </Typography>
 
-                                        {/* QUESTION TYPE */}
                                         <Typography
                                             variant="caption"
                                             sx={{
@@ -192,7 +195,6 @@ export default function LessonDetail() {
                                             {questionTypeMap[q.type] ?? q.type}
                                         </Typography>
 
-                                        {/* ✅ QUESTION IMAGE */}
                                         {q.mediaUrl && (
                                             <Box mt={1} mb={1}>
                                                 <img
@@ -207,12 +209,15 @@ export default function LessonDetail() {
                                             </Box>
                                         )}
 
-                                        {/* ANSWERS */}
                                         <Stack spacing={0.5}>
                                             {(q.items ?? []).map((a, i) => (
                                                 <Typography
                                                     key={i}
-                                                    color={a.isCorrect ? "green" : "text.primary"}
+                                                    color={
+                                                        a.isCorrect
+                                                            ? "green"
+                                                            : "text.primary"
+                                                    }
                                                 >
                                                     {a.key}. {a.value}
                                                 </Typography>

@@ -16,6 +16,8 @@ import LessonEdit from "./pages/LessonEdit";
 import LessonCreate from "./pages/LessonCreate.jsx";
 import Logout from "./components/Logout";
 import Layout from "./components/Layout";
+import TopicDetail from "./components/pages/TopicDetail";
+import TopicCreate from "./components/pages/TopicCreate";
 
 function AppWrapper() {
     return (
@@ -76,11 +78,12 @@ function App() {
 
                 {/* ПРОСМОТР */}
                 <Route path="lessons/:id" element={<LessonDetail />} />
+                <Route path="topics/:id" element={<TopicDetail />} />
+                <Route path="topics/create" element={<TopicCreate />} />
 
                 {/* РЕДАКТОР */}
                 <Route path="lessons/:id/edit" element={<LessonEdit />} />
             </Route>
-
             {/* fallback */}
             <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>

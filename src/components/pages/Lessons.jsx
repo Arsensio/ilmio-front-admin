@@ -24,17 +24,15 @@ export default function Lessons() {
     const [initialLoading, setInitialLoading] = useState(true);
 
     /* ===== FILTER DATA ===== */
-    const [levels, setLevels] = useState([]);
     const [statuses, setStatuses] = useState([]);
+    const [langs, setLangs] = useState([]);
     const [categories, setCategories] = useState([]);
-    const [ageGroups, setAgeGroups] = useState([]);
 
     /* ===== FILTER STATE ===== */
     const [filters, setFilters] = useState({
-        level: "",
         status: "",
         category: "",
-        ageGroup: "",
+        lang: "",          // ✅ ВАЖНО: добавили
         title: "",
     });
 
@@ -52,10 +50,10 @@ export default function Lessons() {
         const init = async () => {
             try {
                 const data = await getFilterData();
-                setLevels(data.levels ?? []);
+
                 setStatuses(data.statuses ?? []);
+                setLangs(data.langs ?? []);
                 setCategories(data.categories ?? []);
-                setAgeGroups(data.ageGroups ?? []);
             } catch (e) {
                 console.error(e);
                 setError("Ошибка загрузки справочников");
@@ -90,26 +88,9 @@ export default function Lessons() {
                     variant="contained"
                     startIcon={<AddIcon />}
                     onClick={() => navigate("/lessons/create")}
-                    sx={{
-                        textTransform: "none",
-                        fontWeight: 500,
-                        borderRadius: "8px",
-                        px: 2.5,
-                        py: 1,
-                        backgroundColor: "#0d6efd", // admin / bootstrap primary
-                        boxShadow: "none",
-                        "&:hover": {
-                            backgroundColor: "#0b5ed7",
-                            boxShadow: "none",
-                        },
-                        "&:active": {
-                            backgroundColor: "#0a58ca",
-                        },
-                    }}
                 >
                     Добавить урок
                 </Button>
-
             </Box>
 
             {/* ===== ERROR ===== */}
@@ -119,13 +100,12 @@ export default function Lessons() {
                 </Alert>
             )}
 
-            {/* ===== FILTERS (STATIC) ===== */}
+            {/* ===== FILTERS ===== */}
             <Paper sx={{ p: 2, mb: 3 }}>
                 <LessonsFilters
-                    levels={levels}
                     statuses={statuses}
                     categories={categories}
-                    ageGroups={ageGroups}
+                    langs={langs}          // ✅ передаём
                     value={filters}
                     onChange={(next) => {
                         setFilters(next);
@@ -133,10 +113,9 @@ export default function Lessons() {
                     }}
                     onReset={() => {
                         setFilters({
-                            level: "",
                             status: "",
                             category: "",
-                            ageGroup: "",
+                            lang: "",          // ✅ сброс языка
                             title: "",
                         });
                         setSort({ field: null, direction: null });
@@ -145,7 +124,7 @@ export default function Lessons() {
                 />
             </Paper>
 
-            {/* ===== TABLE (DYNAMIC) ===== */}
+            {/* ===== TABLE ===== */}
             <LessonsTable
                 filters={filters}
                 sort={sort}

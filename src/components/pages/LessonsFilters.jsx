@@ -11,10 +11,9 @@ import {
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 
 export default function LessonsFilters({
-                                           levels,
                                            statuses,
                                            categories,
-                                           ageGroups,
+                                           langs,          // ✅ добавили
                                            value,
                                            onChange,
                                            onReset,
@@ -32,22 +31,7 @@ export default function LessonsFilters({
             direction={{ xs: "column", md: "row" }}
             alignItems={{ xs: "stretch", md: "flex-end" }}
         >
-            <FormControl fullWidth>
-                <InputLabel>Уровень</InputLabel>
-                <Select
-                    value={value.level}
-                    label="Уровень"
-                    onChange={(e) => update("level", e.target.value)}
-                >
-                    <MenuItem value="">Все</MenuItem>
-                    {levels.map((v) => (
-                        <MenuItem key={v.code} value={v.code}>
-                            {v.label}
-                        </MenuItem>
-                    ))}
-                </Select>
-            </FormControl>
-
+            {/* STATUS */}
             <FormControl fullWidth>
                 <InputLabel>Статус</InputLabel>
                 <Select
@@ -64,6 +48,7 @@ export default function LessonsFilters({
                 </Select>
             </FormControl>
 
+            {/* CATEGORY */}
             <FormControl fullWidth>
                 <InputLabel>Категория</InputLabel>
                 <Select
@@ -80,15 +65,16 @@ export default function LessonsFilters({
                 </Select>
             </FormControl>
 
+            {/* LANGUAGE */}
             <FormControl fullWidth>
-                <InputLabel>Возраст</InputLabel>
+                <InputLabel>Язык</InputLabel>
                 <Select
-                    value={value.ageGroup}
-                    label="Возраст"
-                    onChange={(e) => update("ageGroup", e.target.value)}
+                    value={value.lang}
+                    label="Язык"
+                    onChange={(e) => update("lang", e.target.value)}
                 >
                     <MenuItem value="">Все</MenuItem>
-                    {ageGroups.map((v) => (
+                    {langs.map((v) => (
                         <MenuItem key={v.code} value={v.code}>
                             {v.label}
                         </MenuItem>
@@ -96,6 +82,7 @@ export default function LessonsFilters({
                 </Select>
             </FormControl>
 
+            {/* TITLE */}
             <TextField
                 fullWidth
                 label="По названию"
@@ -103,13 +90,13 @@ export default function LessonsFilters({
                 onChange={(e) => update("title", e.target.value)}
             />
 
-            {/* ✅ FIXED RESET BUTTON */}
+            {/* RESET */}
             <Button
                 variant="outlined"
                 startIcon={<RestartAltIcon />}
                 onClick={onReset}
                 sx={{
-                    height: 56,              // 🔥 КЛЮЧ
+                    height: 56,
                     minWidth: 120,
                     whiteSpace: "nowrap",
                 }}
