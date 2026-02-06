@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     Table,
+    TableContainer,
     TableBody,
     TableCell,
     TableHead,
@@ -121,7 +122,7 @@ export default function TopicsTable({ filters, page }) {
     }
 
     return (
-        <Paper>
+        <TableContainer component={Paper}>
             <Table>
                 <TableHead>
                     <TableRow>
@@ -209,6 +210,6 @@ export default function TopicsTable({ filters, page }) {
                     )}
                 </TableBody>
             </Table>
-        </Paper>
+        </TableContainer>
     );
 }

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
     Box,
     Typography,
+    TableContainer,
     CircularProgress,
     Alert,
     Paper,
@@ -172,7 +173,7 @@ export default function TopicDetail() {
                 Уроки в теме
             </Typography>
 
-            <Paper>
+            <TableContainer component={Paper}>
                 <Table>
                     <TableHead>
                         <TableRow>
@@ -246,7 +247,7 @@ export default function TopicDetail() {
                         ))}
                     </TableBody>
                 </Table>
-            </Paper>
+            </TableContainer>
         </Box>
     );
 }
