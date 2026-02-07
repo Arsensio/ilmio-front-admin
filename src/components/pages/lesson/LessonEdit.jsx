@@ -1,8 +1,8 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 
-import LessonForm from "@/components/pages/LessonForm";
-import { getLessonById, updateLesson, getFilterData } from "@/api/lessons";
+import LessonForm from "@/components/pages/lesson/LessonForm.jsx";
+import { getLessonById, updateLesson, getFilterData } from "@/api/lessons.js";
 
 import { Box, CircularProgress, Alert } from "@mui/material";
 

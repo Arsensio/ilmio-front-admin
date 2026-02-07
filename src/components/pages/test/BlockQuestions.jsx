@@ -1,6 +1,6 @@
 import {Box, Typography} from "@mui/material";
 
-import QuestionItem from "./QuestionItem";
+import QuestionItem from "./QuestionItem.jsx";
 
 
 export default function BlockQuestions({
@@ -20,6 +20,7 @@ export default function BlockQuestions({
         copy.splice(index, 1);
         onChange(copy);
     };
+
 
     /* ================= RENDER ================= */
     return (

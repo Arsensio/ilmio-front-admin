@@ -11,7 +11,7 @@ import {
     Stack,
 } from "@mui/material";
 
-import { getLessonById, getDictionary } from "@/api/lessons";
+import { getLessonById, getDictionary } from "@/api/lessons.js";
 
 /* ===== BOOTSTRAP-LIKE DISABLED FIELD ===== */
 function MetaField({ label, value }) {

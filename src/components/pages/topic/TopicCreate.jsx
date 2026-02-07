@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, CircularProgress } from "@mui/material";
 
-import { getFilterData } from "@/api/lessons";
-import { createTopic } from "@/api/topics";
-import TopicForm from "./topic/TopicForm";
+import { getFilterData } from "@/api/lessons.js";
+import { createTopic } from "@/api/topics.js";
+import TopicForm from "./TopicForm.jsx";
 
 export default function TopicCreate() {
     const navigate = useNavigate();

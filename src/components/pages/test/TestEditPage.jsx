@@ -11,7 +11,7 @@ import {
     Divider,
 } from "@mui/material";
 
-import { getLessonTests, getQuestionTypes } from "@/api/testLessons";
+import { getLessonTests, getQuestionTypes } from "@/api/testLessons.js";
 
 export default function TestEditPage() {
     const { lessonId } = useParams();

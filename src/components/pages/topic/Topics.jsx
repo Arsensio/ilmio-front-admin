@@ -11,9 +11,9 @@ import {
 
 import AddIcon from "@mui/icons-material/Add";
 
-import { getFilterData } from "@/api/lessons";
-import TopicsFilters from "./TopicsFilters";
-import TopicsTable from "./TopicsTable";
+import { getFilterData } from "@/api/lessons.js";
+import TopicsFilters from "./TopicsFilters.jsx";
+import TopicsTable from "./TopicsTable.jsx";
 
 export default function Topics() {
     const navigate = useNavigate(); // ✅ ДОБАВИТЬ

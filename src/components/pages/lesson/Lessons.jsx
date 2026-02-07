@@ -12,9 +12,9 @@ import {
 
 import AddIcon from "@mui/icons-material/Add";
 
-import { getFilterData } from "@/api/lessons";
-import LessonsFilters from "./LessonsFilters";
-import LessonsTable from "./LessonsTable";
+import { getFilterData } from "@/api/lessons.js";
+import LessonsFilters from "./LessonsFilters.jsx";
+import LessonsTable from "./LessonsTable.jsx";
 
 export default function Lessons() {
     const navigate = useNavigate();

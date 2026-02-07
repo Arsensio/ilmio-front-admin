@@ -14,7 +14,7 @@ import AddIcon from "@mui/icons-material/Add";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import ImageIcon from "@mui/icons-material/Image";
 
-import { uploadImage, buildImagePreviewUrl } from "@/api/images";
+import { uploadImage, buildImagePreviewUrl } from "@/api/images.js";
 
 const ABCD = ["A", "B", "C", "D"];
 
@@ -25,6 +25,10 @@ export default function QuestionItem({
                                      }) {
     const hasImage = Boolean(question.imageUrl);
     const hasLocalFile = Boolean(question.imageFile);
+
+    const isMatch =
+        question.type === "MATCH" ||
+        question.type === "MATCH_PROGRESSIVE";
 
     /* ================= IMAGE ================= */
 
@@ -216,8 +220,8 @@ export default function QuestionItem({
                         </Box>
                     ))}
 
-                {/* MATCH */}
-                {question.type === "MATCH" &&
+                {/* MATCH & MATCH_PROGRESSIVE */}
+                {isMatch &&
                     question.answerItems.map((a, i) => (
                         <Box key={i} display="flex" gap={1} mt={1}>
                             <TextField
@@ -255,7 +259,7 @@ export default function QuestionItem({
                         </Box>
                     ))}
 
-                {question.type === "MATCH" && (
+                {isMatch && (
                     <Button
                         size="small"
                         startIcon={<AddIcon />}

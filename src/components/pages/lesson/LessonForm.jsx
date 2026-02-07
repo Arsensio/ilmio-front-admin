@@ -1,7 +1,7 @@
 import { Box, Typography, Divider, Button } from "@mui/material";
-import { useLessonForm } from "./hooks/useLessonForm";
-import LessonMetaForm from "./LessonMetaForm";
-import LessonBlocks from "./LessonBlocks";
+import { useLessonForm } from "../hooks/useLessonForm.js";
+import LessonMetaForm from "./LessonMetaForm.jsx";
+import LessonBlocks from "./LessonBlocks.jsx";
 
 export default function LessonForm({ initialData, dictionaries, onSubmit }) {
     const { form, setForm, updateMeta, buildPayload } =

@@ -17,14 +17,14 @@ import {
     TextField,
 } from "@mui/material";
 
-import { getFilterData } from "@/api/lessons";
+import { getFilterData } from "@/api/lessons.js";
 import {
     getTopicById,
     updateTopic,
     updateLessonOrderIndex,
-} from "@/api/topics";
+} from "@/api/topics.js";
 
-import TopicForm from "./topic/TopicForm";
+import TopicForm from "./TopicForm.jsx";
 
 export default function TopicDetail() {
     const { id } = useParams();

@@ -23,7 +23,7 @@ import Tooltip from "@mui/material/Tooltip";
 import {
     uploadImage,
     buildImagePreviewUrl,
-} from "@/api/images";
+} from "@/api/images.js";
 
 /**
  * Управляет items внутри одного блока

@@ -20,8 +20,8 @@ import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import AddIcon from "@mui/icons-material/Add";
 
-import BlockItems from "./BlockItems";
-import BlockQuestions from "./BlockQuestions";
+import BlockItems from "./BlockItems.jsx";
+import BlockQuestions from "../test/BlockQuestions.jsx";
 
 export default function LessonBlock({
                                         block,
@@ -69,7 +69,7 @@ export default function LessonBlock({
             ];
         }
 
-        if (type === "MATCH") {
+        if (type === "MATCH" || type === "MATCH_PROGRESSIVE") {
             return Array.from({ length: 3 }, () => ({ key: "", value: "" }));
         }
 

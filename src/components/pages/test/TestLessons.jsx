@@ -28,7 +28,7 @@ import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import EditIcon from "@mui/icons-material/Edit";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 
-import { getTestLessons } from "../../api/testLessons";
+import { getTestLessons } from "../../../api/testLessons.js";
 
 export default function TestLessons() {
     const navigate = useNavigate();

@@ -10,6 +10,7 @@ export function useLessonForm(initialData) {
     useEffect(() => {
         if (!initialData) return;
 
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setForm({
             title: initialData.title ?? "",
             description: initialData.description ?? "",

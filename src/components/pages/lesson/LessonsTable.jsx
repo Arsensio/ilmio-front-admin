@@ -16,7 +16,7 @@ import {
     TableSortLabel,
 } from "@mui/material";
 
-import { getLessons } from "@/api/lessons";
+import { getLessons } from "@/api/lessons.js";
 
 export default function LessonsTable({
                                          filters,

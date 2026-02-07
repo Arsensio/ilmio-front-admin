@@ -14,7 +14,7 @@ import {
     TextField,
 } from "@mui/material";
 
-import { filterTopics, updateTopicOrder } from "@/api/topics";
+import { filterTopics, updateTopicOrder } from "@/api/topics.js";
 // PUT /admin/lesson-theme/{id}/index
 
 export default function TopicsTable({ filters, page }) {

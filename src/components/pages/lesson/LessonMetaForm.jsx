@@ -10,7 +10,7 @@ import {
     CircularProgress,
 } from "@mui/material";
 
-import { filterTopics } from "@/api/topics";
+import { filterTopics } from "@/api/topics.js";
 
 export default function LessonMetaForm({ form, dictionaries, onChange }) {
     const { statuses, categories, langs } = dictionaries;

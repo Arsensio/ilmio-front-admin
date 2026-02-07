@@ -10,7 +10,7 @@ import {
 } from "@mui/material";
 
 import AddIcon from "@mui/icons-material/Add";
-import LessonBlock from "./LessonBlock";
+import LessonBlock from "./LessonBlock.jsx";
 
 export default function LessonBlocks({ blocks, setBlocks, dictionaries }) {
     const [dialogOpen, setDialogOpen] = useState(false);

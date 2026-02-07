@@ -9,15 +9,15 @@ import {
 
 import LoginForm from "./components/LoginForm";
 import Dashboard from "./components/Dashboard";
-import Lessons from "./components/pages/Lessons";
-import Topics from "./components/pages/Topics"; // ✅ НОВОЕ
-import LessonDetail from "./pages/LessonDetail";
-import LessonEdit from "./pages/LessonEdit";
-import LessonCreate from "./pages/LessonCreate.jsx";
+import Lessons from "./components/pages/lesson/Lessons.jsx";
+import Topics from "./components/pages/topic/Topics.jsx"; // ✅ НОВОЕ
+import LessonDetail from "./components/pages/lesson/LessonDetail.jsx";
+import LessonEdit from "./components/pages/lesson/LessonEdit.jsx";
+import LessonCreate from "./components/pages/lesson/LessonCreate.jsx";
 import Logout from "./components/Logout";
 import Layout from "./components/Layout";
-import TopicDetail from "./components/pages/TopicDetail";
-import TopicCreate from "./components/pages/TopicCreate";
+import TopicDetail from "./components/pages/topic/TopicDetail.jsx";
+import TopicCreate from "./components/pages/topic/TopicCreate.jsx";
 
 function AppWrapper() {
     return (
